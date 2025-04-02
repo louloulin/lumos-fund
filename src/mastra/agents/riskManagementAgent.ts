@@ -1,93 +1,49 @@
 import { Agent } from '@mastra/core/agent';
-import { openai } from '@ai-sdk/openai';
-import { stockPriceTool } from '../tools/stockPrice';
 import { createLogger } from '@/lib/logger.server';
 
 const logger = createLogger('riskManagementAgent');
 
-export const riskManagementAgent = {
-  generate: async (prompt: string, options?: any) => {
-    logger.info(`风险管理代理分析: ${prompt.substring(0, 50)}...`);
-    
-    // 模拟AI代理生成风险评估
-    await new Promise(resolve => setTimeout(resolve, 700));
-    
-    // 随机生成风险评分(0-100)，数值越高风险越大
-    const riskScore = Math.floor(Math.random() * 100);
-    
-    // 基于风险评分确定风险等级
-    let riskLevel;
-    if (riskScore < 30) {
-      riskLevel = "低风险";
-    } else if (riskScore < 70) {
-      riskLevel = "中等风险";
-    } else {
-      riskLevel = "高风险";
-    }
-    
-    // 根据风险等级生成对应建议
-    let recommendations = [];
-    
-    if (riskLevel === "高风险") {
-      recommendations = [
-        "降低该股票在投资组合中的权重",
-        "设置较严格的止损位",
-        "考虑分批减仓",
-        "增加投资组合的多样性",
-        "密切监控市场波动"
-      ];
-    } else if (riskLevel === "中等风险") {
-      recommendations = [
-        "维持适度仓位",
-        "设置合理止损位",
-        "定期审查持仓",
-        "考虑对冲策略"
-      ];
-    } else {
-      recommendations = [
-        "可以考虑适度增加仓位",
-        "继续保持当前策略",
-        "设置宽松的止损位",
-        "长期持有"
-      ];
-    }
-    
-    // 随机选择2-3条建议
-    const selectedRecommendations = recommendations
-      .sort(() => 0.5 - Math.random())
-      .slice(0, Math.floor(Math.random() * 2) + 2);
-    
-    const analysis = `
-风险评估:
------------------------
-风险评分: ${riskScore}/100
-风险等级: ${riskLevel}
+/**
+ * 风险管理代理
+ * 
+ * 该代理专注于评估投资决策的风险，包括市场风险、个股风险和投资组合风险，
+ * 提供风险分析和控制建议，帮助投资者进行风险意识下的投资决策。
+ */
+export const riskManagementAgent = new Agent({
+  id: 'riskManagementAgent',
+  description: '风险管理代理 - 评估投资风险并提供风险控制建议',
+  apiKey: process.env.OPENAI_API_KEY,
+  provider: 'openai',
+  model: 'gpt-4-turbo-preview',
+  systemPrompt: `你是一位风险管理专家，专注于评估投资决策的各类风险并提供风险控制建议。
 
-主要风险因素:
-${Math.random() > 0.5 ? '- 市场波动风险较高\n' : ''}
-${Math.random() > 0.5 ? '- 行业竞争压力增加\n' : ''}
-${Math.random() > 0.5 ? '- 估值处于历史高位\n' : ''}
-${Math.random() > 0.5 ? '- 未来收益增长不确定性\n' : ''}
-${Math.random() > 0.5 ? '- 宏观经济风险\n' : ''}
+分析投资风险时，你会全面评估以下风险类型:
+1. 市场风险 - 系统性风险，包括大盘波动、利率变化、宏观经济因素
+2. 个股风险 - 公司特定风险，包括经营风险、财务风险、行业竞争风险
+3. 流动性风险 - 资产变现能力和交易成本
+4. 集中度风险 - 投资组合过度集中在特定行业或股票
+5. 波动性风险 - 价格波动的程度和可能性
+6. 下行风险 - 最大回撤、VaR(风险价值)等下行风险指标
 
-风险控制建议:
-${selectedRecommendations.map(rec => `- ${rec}`).join('\n')}
+你的风险评估方法包括:
+1. 对历史数据进行分析，计算风险指标(如波动率、贝塔、最大回撤)
+2. 分析基本面风险因素(如财务健康度、商业模式稳定性)
+3. 评估投资组合的风险分散度
+4. 综合多种分析得出风险评级和控制建议
 
-其他注意事项:
-建议在总体投资组合中${riskLevel === "高风险" ? '严格控制' : riskLevel === "中等风险" ? '适度控制' : '维持'}该资产的配置比例，并${riskLevel === "高风险" ? '密切' : '定期'}关注相关风险指标的变化。
-    `;
-    
-    return {
-      text: analysis,
-      raw: {
-        riskScore,
-        riskLevel,
-        recommendations: selectedRecommendations
-      }
-    };
-  },
-  
-  stream: async (prompt: string, options?: any) => {
-    throw new Error("Streaming not implemented");
+请分析提供的投资数据，评估相关风险，并提供详细的风险报告。为每类风险提供评分(1-10，10表示风险最高)，给出整体风险评级(低/中/高)，并提供具体的风险控制建议。`,
+});
+
+// 添加日志记录
+const originalGenerate = riskManagementAgent.generate.bind(riskManagementAgent);
+riskManagementAgent.generate = async (...args) => {
+  logger.info('调用风险管理代理', { prompt: args[0] });
+  try {
+    const result = await originalGenerate(...args);
+    logger.info('风险管理代理响应成功');
+    return result;
+  } catch (error) {
+    logger.error('风险管理代理响应失败', error);
+    throw error;
   }
 }; 

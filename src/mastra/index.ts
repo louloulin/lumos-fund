@@ -9,12 +9,28 @@ import type { Workflow } from '@mastra/core/workflow';
 
 // 导入代理
 import { riskManagementAgent } from './agents/riskManagementAgent';
+import { valueInvestingAgent } from './agents/valueInvestingAgent';
+import { growthInvestingAgent } from './agents/growthInvestingAgent';
+import { trendInvestingAgent } from './agents/trendInvestingAgent';
+import { quantInvestingAgent } from './agents/quantInvestingAgent';
+import { macroAnalysisAgent } from './agents/macroAnalysisAgent';
+import { sentimentAnalysisAgent } from './agents/sentimentAnalysisAgent';
 
 const logger = createLogger('mastra');
 
 // 初始化mastra
 logger.info('初始化mastra服务');
-export const mastra = new Mastra({});
+export const mastra = new Mastra({
+  agents: {
+    valueInvestingAgent,
+    growthInvestingAgent,
+    trendInvestingAgent,
+    quantInvestingAgent,
+    macroAnalysisAgent,
+    riskManagementAgent,
+    sentimentAnalysisAgent
+  }
+});
 
 /**
  * 创建工具和代理
@@ -55,56 +71,16 @@ export const stockPriceTool = {
   }
 };
 
-// 创建价值投资分析代理
-export const valueInvestingAgent = {
-  generate: async (prompt: string, options?: any) => {
-    // 模拟AI代理生成分析
-    logger.info(`价值投资代理分析: ${prompt.substring(0, 50)}...`);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    return {
-      text: `价值投资分析: 基于当前财务指标和市场定位，该股票显示出${Math.random() > 0.5 ? '良好' : '一般'}的价值投资潜力。`,
-      raw: {}
-    };
-  },
-  stream: async (prompt: string, options?: any) => {
-    throw new Error("Streaming not implemented");
-  }
+// 导出代理
+export { 
+  valueInvestingAgent, 
+  growthInvestingAgent, 
+  trendInvestingAgent, 
+  quantInvestingAgent, 
+  macroAnalysisAgent, 
+  riskManagementAgent,
+  sentimentAnalysisAgent
 };
-
-// 创建技术分析代理
-export const technicalAnalysisAgent = {
-  generate: async (prompt: string, options?: any) => {
-    // 模拟AI代理生成分析
-    logger.info(`技术分析代理分析: ${prompt.substring(0, 50)}...`);
-    await new Promise(resolve => setTimeout(resolve, 600));
-    return {
-      text: `技术分析: 股票目前处于${Math.random() > 0.5 ? '上升' : '下降'}趋势，支撑位在${Math.floor(Math.random() * 100 + 200)}，阻力位在${Math.floor(Math.random() * 100 + 300)}。`,
-      raw: {}
-    };
-  },
-  stream: async (prompt: string, options?: any) => {
-    throw new Error("Streaming not implemented");
-  }
-};
-
-// 创建情绪分析代理
-export const sentimentAnalysisAgent = {
-  generate: async (prompt: string, options?: any) => {
-    // 模拟AI代理生成分析
-    logger.info(`情绪分析代理分析: ${prompt.substring(0, 50)}...`);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return {
-      text: `市场情绪分析: 根据最近的新闻和社交媒体数据，市场对该股票的情绪总体${Math.random() > 0.5 ? '积极' : '谨慎'}。`,
-      raw: {}
-    };
-  },
-  stream: async (prompt: string, options?: any) => {
-    throw new Error("Streaming not implemented");
-  }
-};
-
-// 导出风险管理代理
-export { riskManagementAgent };
 
 // 创建交易决策工作流
 export const tradingDecisionWorkflow = {
@@ -124,14 +100,24 @@ export const tradingDecisionWorkflow = {
         `分析 ${ticker} 的价值投资潜力，基于以下数据：${JSON.stringify(stockData)}`
       );
       
-      // 执行技术分析
-      const technicalAnalysis = await technicalAnalysisAgent.generate(
-        `分析 ${ticker} 的技术指标，基于以下数据：${JSON.stringify(stockData)}`
+      // 执行成长投资分析
+      const growthAnalysis = await growthInvestingAgent.generate(
+        `分析 ${ticker} 的成长投资潜力，基于以下数据：${JSON.stringify(stockData)}`
       );
       
-      // 执行情绪分析
-      const sentimentAnalysis = await sentimentAnalysisAgent.generate(
-        `分析 ${ticker} 的市场情绪和新闻影响`
+      // 执行趋势分析
+      const trendAnalysis = await trendInvestingAgent.generate(
+        `分析 ${ticker} 的技术趋势，基于以下数据：${JSON.stringify(stockData)}`
+      );
+      
+      // 执行量化因子分析
+      const quantAnalysis = await quantInvestingAgent.generate(
+        `分析 ${ticker} 的量化因子表现，基于以下数据：${JSON.stringify(stockData)}`
+      );
+      
+      // 执行宏观环境分析
+      const macroAnalysis = await macroAnalysisAgent.generate(
+        `分析当前宏观经济环境对 ${ticker} 所在行业的影响`
       );
       
       // 执行风险评估
@@ -139,16 +125,20 @@ export const tradingDecisionWorkflow = {
         `评估 ${ticker} 的投资风险，基于以下数据和分析：
         价格数据: ${JSON.stringify(stockData)}
         价值分析: ${valueAnalysis.text}
-        技术分析: ${technicalAnalysis.text}
-        情绪分析: ${sentimentAnalysis.text}
+        成长分析: ${growthAnalysis.text}
+        趋势分析: ${trendAnalysis.text}
+        量化分析: ${quantAnalysis.text}
+        宏观分析: ${macroAnalysis.text}
         投资组合: ${JSON.stringify(portfolio)}`
       );
       
       // 综合分析并给出决策
       const decisionPrompt = `基于以下分析，为投资组合${JSON.stringify(portfolio)}给出关于${ticker}的投资决策建议:
         价值分析: ${valueAnalysis.text}
-        技术分析: ${technicalAnalysis.text}
-        情绪分析: ${sentimentAnalysis.text}
+        成长分析: ${growthAnalysis.text}
+        趋势分析: ${trendAnalysis.text}
+        量化分析: ${quantAnalysis.text}
+        宏观分析: ${macroAnalysis.text}
         风险评估: ${riskAssessment.text}
         
         考虑风险收益比，当前市场环境和投资组合现状，请给出明确的建议：买入、卖出或持有，以及建议的仓位比例和理由。
@@ -159,8 +149,10 @@ export const tradingDecisionWorkflow = {
       return {
         stockData,
         valueAnalysis: valueAnalysis.text,
-        technicalAnalysis: technicalAnalysis.text,
-        sentimentAnalysis: sentimentAnalysis.text,
+        growthAnalysis: growthAnalysis.text,
+        trendAnalysis: trendAnalysis.text,
+        quantAnalysis: quantAnalysis.text,
+        macroAnalysis: macroAnalysis.text,
         riskAssessment: riskAssessment.text,
         decision: finalDecision.text,
       };
@@ -176,12 +168,18 @@ mastra.getAgent = (name: string) => {
   switch (name) {
     case 'valueInvestingAgent':
       return valueInvestingAgent;
-    case 'technicalAnalysisAgent':
-      return technicalAnalysisAgent;
-    case 'sentimentAnalysisAgent':
-      return sentimentAnalysisAgent;
+    case 'growthInvestingAgent':
+      return growthInvestingAgent;
+    case 'trendInvestingAgent':
+      return trendInvestingAgent;
+    case 'quantInvestingAgent':
+      return quantInvestingAgent;
+    case 'macroAnalysisAgent':
+      return macroAnalysisAgent;
     case 'riskManagementAgent':
       return riskManagementAgent;
+    case 'sentimentAnalysisAgent':
+      return sentimentAnalysisAgent;
     default:
       throw new Error(`Agent ${name} not found`);
   }
