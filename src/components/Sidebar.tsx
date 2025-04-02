@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   LayoutDashboard,
   LineChart,
@@ -21,22 +21,22 @@ import { cn } from '@/lib/utils';
 const navItems = [
   {
     label: '仪表盘',
-    href: '/',
+    href: '/dashboard',
     icon: LayoutDashboard,
   },
   {
     label: '交易中心',
-    href: '/trading',
+    href: '/dashboard?tab=trading',
     icon: ArrowRightLeft,
   },
   {
     label: '市场分析',
-    href: '/market',
+    href: '/dashboard?tab=market',
     icon: LineChart,
   },
   {
     label: '投资组合',
-    href: '/portfolio',
+    href: '/dashboard?tab=portfolio',
     icon: Briefcase,
   },
   {
@@ -46,12 +46,12 @@ const navItems = [
   },
   {
     label: 'AI代理',
-    href: '/agents',
+    href: '/dashboard?tab=agents',
     icon: Brain,
   },
   {
     label: '数据管理',
-    href: '/data',
+    href: '/dashboard?tab=data',
     icon: BarChartHorizontal,
   },
   {
@@ -63,7 +63,17 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentTab = searchParams.get('tab');
   const [collapsed, setCollapsed] = useState(false);
+  
+  const isActive = (href: string) => {
+    if (href.includes('?tab=')) {
+      const tabParam = href.split('?tab=')[1];
+      return pathname === '/dashboard' && currentTab === tabParam;
+    }
+    return pathname === href;
+  };
 
   return (
       <div className={cn(
@@ -105,7 +115,7 @@ export function Sidebar() {
         <div className="flex-1 overflow-auto py-2">
           <nav className="grid gap-1 px-2">
             {navItems.map((item) => {
-              const isActive = pathname === item.href;
+              const isItemActive = isActive(item.href);
 
               return (
                   <Link
@@ -113,11 +123,11 @@ export function Sidebar() {
                       href={item.href}
                       className={cn(
                           "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted",
-                          isActive ? "bg-muted font-medium" : "text-muted-foreground",
+                          isItemActive ? "bg-muted font-medium" : "text-muted-foreground",
                           collapsed && "justify-center"
                       )}
                   >
-                    <item.icon className={cn("h-4 w-4", isActive && "text-primary")} />
+                    <item.icon className={cn("h-4 w-4", isItemActive && "text-primary")} />
                     {!collapsed && <span>{item.label}</span>}
                   </Link>
               );
