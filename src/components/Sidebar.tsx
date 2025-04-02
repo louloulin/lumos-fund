@@ -66,38 +66,38 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className={cn(
-      "border-r bg-background h-screen flex flex-col relative group",
+    <aside className={cn(
+      "border-r border-border bg-background h-screen flex flex-col relative group transition-all duration-200 ease-in-out",
       collapsed ? "w-16" : "w-64"
     )}>
-      <div className="p-4 flex items-center justify-between">
+      <div className="p-4 flex items-center justify-between border-b border-border">
         <div className={cn(
           "flex items-center transition-opacity",
           collapsed ? "opacity-0 invisible" : "opacity-100 visible"
         )}>
-          <div className="h-8 w-8 rounded-full bg-primary/90 flex items-center justify-center text-white font-bold text-lg mr-3">
+          <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg mr-2">
             L
           </div>
-          <h1 className="text-xl font-bold tracking-tight">LumosFund</h1>
+          <h1 className="text-xl font-bold">LumosFund</h1>
         </div>
         <button 
           onClick={() => setCollapsed(!collapsed)}
-          className="h-6 w-6 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
+          className="h-6 w-6 rounded-full bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
       </div>
 
       <div className={cn(
-        "px-3 mb-4",
-        collapsed ? "opacity-0 invisible" : "opacity-100 visible"
+        "px-3 py-2",
+        collapsed ? "opacity-0 invisible h-0" : "opacity-100 visible h-auto"
       )}>
         <div className="relative">
           <Search className="h-4 w-4 absolute left-2 top-2.5 text-muted-foreground" />
           <input 
             type="text" 
             placeholder="搜索..." 
-            className="w-full h-9 rounded-md bg-muted pl-8 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            className="w-full h-9 rounded-md bg-secondary/50 pl-8 pr-4 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
       </div>
@@ -112,12 +112,17 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted",
-                  isActive ? "bg-muted font-medium" : "text-muted-foreground",
-                  collapsed && "justify-center"
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                  isActive 
+                    ? "bg-secondary text-foreground font-medium" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
+                  collapsed && "justify-center px-2"
                 )}
               >
-                <item.icon className={cn("h-4 w-4", isActive && "text-primary")} />
+                <item.icon className={cn(
+                  "h-4 w-4", 
+                  isActive ? "text-foreground" : "text-muted-foreground"
+                )} />
                 {!collapsed && <span>{item.label}</span>}
               </Link>
             );
@@ -125,12 +130,14 @@ export function Sidebar() {
         </nav>
       </div>
 
-      <div className="p-4 border-t">
+      <div className="p-4 border-t border-border">
         <div className={cn(
           "flex items-center gap-3",
           collapsed && "justify-center"
         )}>
-          <div className="h-8 w-8 rounded-full bg-muted" />
+          <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-medium text-sm">
+            U
+          </div>
           {!collapsed && (
             <div>
               <p className="text-sm font-medium">用户名</p>
@@ -139,6 +146,6 @@ export function Sidebar() {
           )}
         </div>
       </div>
-    </div>
+    </aside>
   );
 } 
