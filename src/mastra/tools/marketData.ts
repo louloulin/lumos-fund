@@ -1,98 +1,106 @@
-import { Tool } from '@mastra/core/tool';
-import { createLogger } from '@/lib/logger.server';
+import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 
-const logger = createLogger('marketDataTool');
+// 数据获取函数
+const fetchMarketData = async (symbol: string, dataType: string) => {
+  const baseUrl = 'https://mastra-stock-data.vercel.app/api';
+  
+  switch (dataType) {
+    case 'price':
+      const priceData = await fetch(`${baseUrl}/stock-data?symbol=${symbol}`);
+      return priceData.json();
+    case 'fundamental':
+      const fundamentalData = await fetch(`${baseUrl}/fundamental?symbol=${symbol}`);
+      return fundamentalData.json();
+    case 'technical':
+      const technicalData = await fetch(`${baseUrl}/technical?symbol=${symbol}`);
+      return technicalData.json();
+    default:
+      throw new Error(`Unsupported data type: ${dataType}`);
+  }
+};
 
-/**
- * 市场数据工具 - 获取实时和历史市场数据
- */
-export const marketDataTool = new Tool({
-  name: 'marketData',
-  description: '获取股票市场数据，包括价格、交易量、财务指标等',
-  schema: z.object({
+// 技术指标计算
+const calculateIndicators = (prices: number[]) => {
+  // 简单移动平均线 (SMA)
+  const sma = (period: number) => {
+    const result = [];
+    for (let i = period - 1; i < prices.length; i++) {
+      const sum = prices.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0);
+      result.push(sum / period);
+    }
+    return result;
+  };
+
+  // 相对强弱指标 (RSI)
+  const rsi = (period: number = 14) => {
+    const changes = prices.slice(1).map((price, i) => price - prices[i]);
+    const gains = changes.map(change => Math.max(change, 0));
+    const losses = changes.map(change => Math.abs(Math.min(change, 0)));
+    
+    const avgGain = gains.slice(0, period).reduce((a, b) => a + b) / period;
+    const avgLoss = losses.slice(0, period).reduce((a, b) => a + b) / period;
+    
+    const rs = avgGain / avgLoss;
+    return 100 - (100 / (1 + rs));
+  };
+
+  return {
+    sma5: sma(5),
+    sma20: sma(20),
+    sma50: sma(50),
+    rsi: rsi()
+  };
+};
+
+// 创建市场数据工具
+export const marketDataTool = createTool({
+  id: 'Market Data Tool',
+  description: '获取和分析市场数据，包括价格、交易量、技术指标和基本面数据',
+  inputSchema: z.object({
     symbol: z.string().describe('股票代码'),
-    dataType: z.enum(['price', 'volume', 'financials', 'all']).describe('数据类型'),
-    startDate: z.string().optional().describe('开始日期 (YYYY-MM-DD)'),
-    endDate: z.string().optional().describe('结束日期 (YYYY-MM-DD)'),
+    dataType: z.enum(['price', 'fundamental', 'technical']).describe('数据类型'),
+    period: z.string().optional().describe('数据周期，如 1d, 5d, 1mo 等'),
   }),
-  async run({ symbol, dataType, startDate, endDate }) {
+  execute: async ({ context: { symbol, dataType, period = '1mo' } }) => {
+    console.log(`Fetching ${dataType} data for ${symbol} over ${period}`);
+    
     try {
-      logger.info('获取市场数据', { symbol, dataType, startDate, endDate });
-
-      // 这里应该集成实际的市场数据API
-      // 目前使用模拟数据进行测试
-      const data = await fetchMarketData(symbol, dataType, startDate, endDate);
+      const data = await fetchMarketData(symbol, dataType);
       
-      logger.info('成功获取市场数据');
-      return data;
+      // 根据数据类型处理返回结果
+      switch (dataType) {
+        case 'price':
+          const prices = data.prices.map((p: any) => parseFloat(p['4. close']));
+          const indicators = calculateIndicators(prices);
+          return {
+            symbol,
+            currentPrice: prices[prices.length - 1],
+            priceHistory: prices,
+            indicators,
+            period
+          };
+          
+        case 'fundamental':
+          return {
+            symbol,
+            fundamentalData: data,
+            period
+          };
+          
+        case 'technical':
+          return {
+            symbol,
+            technicalData: data,
+            period
+          };
+          
+        default:
+          throw new Error(`Unsupported data type: ${dataType}`);
+      }
     } catch (error) {
-      logger.error('获取市场数据失败', error);
+      console.error(`Error fetching market data: ${error}`);
       throw error;
     }
   }
-});
-
-/**
- * 模拟获取市场数据
- * 在实际应用中，这里应该调用真实的市场数据API
- */
-async function fetchMarketData(
-  symbol: string,
-  dataType: 'price' | 'volume' | 'financials' | 'all',
-  startDate?: string,
-  endDate?: string
-) {
-  // 生成模拟数据
-  const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const end = endDate ? new Date(endDate) : new Date();
-  const days = Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
-
-  let basePrice = 100 + Math.random() * 50;
-  const data = [];
-
-  for (let i = 0; i < days; i++) {
-    const date = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
-    if (date.getDay() === 0 || date.getDay() === 6) continue; // 跳过周末
-
-    const priceChange = (Math.random() - 0.48) * basePrice * 0.03;
-    const newPrice = basePrice + priceChange;
-
-    const dataPoint: any = {
-      date: date.toISOString().split('T')[0],
-      price: {
-        open: basePrice,
-        high: Math.max(basePrice, newPrice) + Math.random() * Math.abs(priceChange) * 0.5,
-        low: Math.min(basePrice, newPrice) - Math.random() * Math.abs(priceChange) * 0.5,
-        close: newPrice,
-        adjustedClose: newPrice * (1 + (Math.random() - 0.5) * 0.001)
-      },
-      volume: Math.floor(Math.random() * 1000000) + 500000
-    };
-
-    if (dataType === 'all' || dataType === 'financials') {
-      dataPoint.financials = {
-        pe: 15 + Math.random() * 10,
-        pb: 2 + Math.random() * 3,
-        ps: 3 + Math.random() * 4,
-        roe: 0.15 + Math.random() * 0.1,
-        roa: 0.08 + Math.random() * 0.05,
-        debtToEquity: 0.5 + Math.random() * 0.5,
-        currentRatio: 1.5 + Math.random() * 1,
-        quickRatio: 1.2 + Math.random() * 0.8,
-        grossMargin: 0.4 + Math.random() * 0.2,
-        operatingMargin: 0.2 + Math.random() * 0.15,
-        netMargin: 0.1 + Math.random() * 0.1
-      };
-    }
-
-    data.push(dataPoint);
-    basePrice = newPrice;
-  }
-
-  return {
-    symbol,
-    dataType,
-    data
-  };
-} 
+}); 

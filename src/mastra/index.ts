@@ -9,12 +9,10 @@ import type { Workflow } from '@mastra/core/workflow';
 
 // 导入代理
 import { riskManagementAgent } from './agents/riskManagementAgent';
-import { valueInvestingAgent } from './agents/valueInvestingAgent';
-import { growthInvestingAgent } from './agents/growthInvestingAgent';
-import { trendInvestingAgent } from './agents/trendInvestingAgent';
 import { quantInvestingAgent } from './agents/quantInvestingAgent';
 import { macroAnalysisAgent } from './agents/macroAnalysisAgent';
 import { sentimentAnalysisAgent } from './agents/sentimentAnalysisAgent';
+import { stockAgent, valueInvestingAgent, growthInvestingAgent, trendInvestingAgent } from './agents/stockAgent';
 
 const logger = createLogger('mastra');
 
@@ -22,6 +20,7 @@ const logger = createLogger('mastra');
 logger.info('初始化mastra服务');
 export const mastra = new Mastra({
   agents: {
+    stockAgent,
     valueInvestingAgent,
     growthInvestingAgent,
     trendInvestingAgent,
@@ -73,6 +72,7 @@ export const stockPriceTool = {
 
 // 导出代理
 export { 
+  stockAgent,
   valueInvestingAgent, 
   growthInvestingAgent, 
   trendInvestingAgent, 
@@ -192,4 +192,7 @@ mastra.getWorkflow = (name: string) => {
     default:
       throw new Error(`Workflow ${name} not found`);
   }
-}; 
+};
+
+// 导出工具
+export { marketDataTool } from './tools/marketData'; 
