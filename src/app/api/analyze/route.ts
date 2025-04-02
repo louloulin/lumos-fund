@@ -22,11 +22,19 @@ export async function POST(req: Request) {
       context: {
         ticker,
         portfolio: portfolio || { cash: 0, positions: [] },
+        data: {
+          // 数据将由工具动态获取，此处可提供缓存或预加载数据
+        }
       }
     });
     
     // 返回分析结果
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json({
+      fundamentalAnalysis: result.fundamentalAnalysis,
+      technicalAnalysis: result.technicalAnalysis,
+      sentimentAnalysis: result.sentimentAnalysis,
+      portfolioDecision: result.portfolioDecision
+    }, { status: 200 });
   } catch (error) {
     console.error('分析API错误:', error);
     return NextResponse.json(
@@ -41,7 +49,7 @@ export async function OPTIONS(req: Request) {
   try {
     // 解析请求数据
     const body = await req.json();
-    const { ticker, question } = body;
+    const { ticker, question, analysisType } = body;
     
     if (!ticker) {
       return NextResponse.json(
@@ -50,8 +58,16 @@ export async function OPTIONS(req: Request) {
       );
     }
     
-    // 使用价值投资代理进行分析（流式响应）
-    const agent = mastra.getAgent('valueInvestingAgent');
+    // 根据分析类型选择代理
+    let agent;
+    if (analysisType === 'sentiment') {
+      agent = mastra.getAgent('sentimentAnalysisAgent');
+    } else if (analysisType === 'technical') {
+      agent = mastra.getAgent('technicalAnalysisAgent');
+    } else {
+      // 默认使用价值投资代理
+      agent = mastra.getAgent('valueInvestingAgent');
+    }
     
     // 创建提示词
     const prompt = question || `分析 ${ticker} 股票，提供投资建议`;

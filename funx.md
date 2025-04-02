@@ -13,6 +13,7 @@
 - [x] 技术分析代理(technicalAnalysisAgent)
 - [x] 组合管理代理(portfolioManagementAgent)
 - [x] 交易决策工作流(tradingDecisionWorkflow)
+- [x] 情绪分析代理(sentimentAnalysisAgent)
 
 ## Next.js Mastra集成
 - [x] Mastra实例配置
@@ -45,6 +46,7 @@
   - [x] valueInvestingAgent测试
   - [x] technicalAnalysisAgent测试
   - [x] portfolioManagementAgent测试
+  - [x] sentimentAnalysisAgent测试
 - [x] 工作流测试
   - [x] tradingDecisionWorkflow测试
 - [x] API路由测试

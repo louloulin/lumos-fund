@@ -2,6 +2,7 @@ import { Workflow } from '@mastra/core/workflow';
 import { valueInvestingAgent } from '../agents/valueInvestingAgent';
 import { technicalAnalysisAgent } from '../agents/technicalAnalysisAgent';
 import { portfolioManagementAgent } from '../agents/portfolioManagementAgent';
+import { sentimentAnalysisAgent } from '../agents/sentimentAnalysisAgent';
 
 export const tradingDecisionWorkflow = new Workflow({
   name: 'Trading Decision Workflow',
@@ -9,6 +10,7 @@ export const tradingDecisionWorkflow = new Workflow({
   agents: {
     valueInvestingAgent,
     technicalAnalysisAgent,
+    sentimentAnalysisAgent,
     portfolioManagementAgent
   },
   steps: [
@@ -29,13 +31,22 @@ export const tradingDecisionWorkflow = new Workflow({
       })
     },
     {
+      id: 'sentimentAnalysis',
+      agent: 'sentimentAnalysisAgent',
+      input: ({ context }) => ({
+        ticker: context.ticker,
+        data: context.data
+      })
+    },
+    {
       id: 'portfolioDecision',
       agent: 'portfolioManagementAgent',
       input: ({ context, results }) => ({
         ticker: context.ticker,
         analyses: {
           fundamental: results.fundamentalAnalysis,
-          technical: results.technicalAnalysis
+          technical: results.technicalAnalysis,
+          sentiment: results.sentimentAnalysis
         },
         portfolio: context.portfolio,
         cash: context.cash

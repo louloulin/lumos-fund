@@ -17,6 +17,13 @@ export const createMockTool = (name: string, mockResponse: any): Tool => {
   } as unknown as Tool;
 };
 
+// 简单的工具模拟函数
+export const mockTool = (mockResponse: any): Tool => {
+  return {
+    execute: vi.fn().mockResolvedValue(mockResponse),
+  } as unknown as Tool;
+};
+
 // 设置模拟代理，用于测试工作流
 export const setupMockAgent = (name: string, mockResponse: any = { text: 'Mock response' }) => {
   const mockAgent = {
