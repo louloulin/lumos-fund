@@ -26,17 +26,17 @@ const navItems = [
   },
   {
     label: '交易中心',
-    href: '/dashboard?tab=trading',
+    href: '/dashboard/trading',
     icon: ArrowRightLeft,
   },
   {
     label: '市场分析',
-    href: '/dashboard?tab=market',
+    href: '/dashboard/market',
     icon: LineChart,
   },
   {
     label: '投资组合',
-    href: '/dashboard?tab=portfolio',
+    href: '/dashboard/portfolio',
     icon: Briefcase,
   },
   {
@@ -46,12 +46,12 @@ const navItems = [
   },
   {
     label: 'AI代理',
-    href: '/dashboard?tab=agents',
+    href: '/dashboard/agents',
     icon: Brain,
   },
   {
     label: '数据管理',
-    href: '/dashboard?tab=data',
+    href: '/dashboard/data',
     icon: BarChartHorizontal,
   },
   {
@@ -68,11 +68,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   
   const isActive = (href: string) => {
-    if (href.includes('?tab=')) {
-      const tabParam = href.split('?tab=')[1];
-      return pathname === '/dashboard' && currentTab === tabParam;
-    }
-    return pathname === href;
+    return pathname === href || pathname.startsWith(`${href}/`);
   };
 
   return (
