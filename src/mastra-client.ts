@@ -63,6 +63,7 @@ export const valueInvestingAgent = new Agent();
 export const technicalAnalysisAgent = new Agent();
 export const portfolioManagementAgent = new Agent();
 export const sentimentAnalysisAgent = new Agent();
+export const riskManagementAgent = new Agent();
 export const tradingDecisionWorkflow = new Workflow();
 export const stockPriceTool = new Tool();
 export const financialMetricsTool = new Tool();

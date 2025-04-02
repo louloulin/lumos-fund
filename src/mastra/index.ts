@@ -7,6 +7,9 @@ import type { Agent } from '@mastra/core/agent';
 import type { Tool } from '@mastra/core/tools';
 import type { Workflow } from '@mastra/core/workflow';
 
+// 导入代理
+import { riskManagementAgent } from './agents/riskManagementAgent';
+
 const logger = createLogger('mastra');
 
 // 初始化mastra
@@ -100,6 +103,9 @@ export const sentimentAnalysisAgent = {
   }
 };
 
+// 导出风险管理代理
+export { riskManagementAgent };
+
 // 创建交易决策工作流
 export const tradingDecisionWorkflow = {
   execute: async (options: any) => {
@@ -128,11 +134,22 @@ export const tradingDecisionWorkflow = {
         `分析 ${ticker} 的市场情绪和新闻影响`
       );
       
+      // 执行风险评估
+      const riskAssessment = await riskManagementAgent.generate(
+        `评估 ${ticker} 的投资风险，基于以下数据和分析：
+        价格数据: ${JSON.stringify(stockData)}
+        价值分析: ${valueAnalysis.text}
+        技术分析: ${technicalAnalysis.text}
+        情绪分析: ${sentimentAnalysis.text}
+        投资组合: ${JSON.stringify(portfolio)}`
+      );
+      
       // 综合分析并给出决策
       const decisionPrompt = `基于以下分析，为投资组合${JSON.stringify(portfolio)}给出关于${ticker}的投资决策建议:
         价值分析: ${valueAnalysis.text}
         技术分析: ${technicalAnalysis.text}
         情绪分析: ${sentimentAnalysis.text}
+        风险评估: ${riskAssessment.text}
         
         考虑风险收益比，当前市场环境和投资组合现状，请给出明确的建议：买入、卖出或持有，以及建议的仓位比例和理由。
       `;
@@ -144,6 +161,7 @@ export const tradingDecisionWorkflow = {
         valueAnalysis: valueAnalysis.text,
         technicalAnalysis: technicalAnalysis.text,
         sentimentAnalysis: sentimentAnalysis.text,
+        riskAssessment: riskAssessment.text,
         decision: finalDecision.text,
       };
     } catch (error) {
@@ -162,6 +180,8 @@ mastra.getAgent = (name: string) => {
       return technicalAnalysisAgent;
     case 'sentimentAnalysisAgent':
       return sentimentAnalysisAgent;
+    case 'riskManagementAgent':
+      return riskManagementAgent;
     default:
       throw new Error(`Agent ${name} not found`);
   }

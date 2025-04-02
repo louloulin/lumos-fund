@@ -135,6 +135,42 @@ export async function getSentimentAnalysis(ticker: string) {
 }
 
 /**
+ * 获取风险评估
+ */
+export async function getRiskAssessment(ticker: string, data: any, analyses: any) {
+  logger.info(`执行风险评估: ${ticker}`);
+  
+  try {
+    const agent = mastra.getAgent('riskManagementAgent');
+    
+    const prompt = `评估 ${ticker} 股票的投资风险。
+      
+      当前价格: ${data?.currentPrice || 'N/A'}
+      市值: ${data?.marketCap || 'N/A'}
+      市盈率: ${data?.pe || 'N/A'}
+      波动率: ${data?.change || 'N/A'}%
+      
+      价值分析: ${analyses?.valueAnalysis || '无'}
+      技术分析: ${analyses?.technicalAnalysis || '无'}
+      情绪分析: ${analyses?.sentimentAnalysis || '无'}
+    `;
+    
+    const result = await agent.generate(prompt);
+    
+    // 重新验证相关路径确保数据刷新
+    revalidatePath('/analysis');
+    
+    return { success: true, data: result.text || result };
+  } catch (error) {
+    logger.error('风险评估失败:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : '评估失败'
+    };
+  }
+}
+
+/**
  * 获取股票价格数据
  */
 export async function getStockPriceData(ticker: string) {
