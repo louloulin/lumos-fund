@@ -2,12 +2,14 @@ const webpack = require('webpack');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 服务器端外部包
-  serverExternalPackages: [
-    "@mastra/*", 
-    "@libsql/*", 
-    "libsql"
-  ],
+  // 使用实验性配置替代serverExternalPackages
+  experimental: {
+    serverComponentsExternalPackages: [
+      "@mastra/*", 
+      "@libsql/*", 
+      "libsql"
+    ]
+  },
   
   // 常规配置
   reactStrictMode: true,

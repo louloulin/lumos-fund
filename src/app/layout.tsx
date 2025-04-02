@@ -4,12 +4,13 @@ import { Inter } from 'next/font/google';
 import { ThemeProvider } from '@/components/ui/theme-provider';
 import { Sidebar } from '@/components/Sidebar';
 import { Toaster } from '@/components/ui/toaster';
+import { cn } from '@/lib/utils';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'LumosFund - 智能投资平台',
-  description: '基于AI的量化交易与投资分析平台',
+  title: 'LumosDB - 数据库管理',
+  description: '高效智能的数据库管理分析平台',
 };
 
 export default function RootLayout({
@@ -19,16 +20,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={cn(inter.className)} style={{ minHeight: '100vh', WebkitFontSmoothing: 'antialiased', MozOsxFontSmoothing: 'grayscale' }}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="dark"
+          enableSystem={false}
           disableTransitionOnChange
         >
-          <div className="flex h-screen overflow-hidden">
-            <Sidebar />
-            <main className="flex-1 overflow-auto p-6">{children}</main>
+          <div style={{ position: 'relative', display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', flex: '1' }}>
+              <Sidebar />
+              <main style={{ flex: '1', overflow: 'auto', padding: '1.5rem' }}>
+                {children}
+              </main>
+            </div>
           </div>
           <Toaster />
         </ThemeProvider>
