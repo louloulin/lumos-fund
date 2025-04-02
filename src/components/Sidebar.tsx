@@ -2,105 +2,63 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  LayoutDashboard, 
-  Database, 
-  Home,
-  BarChart, 
-  Layers, 
-  Settings, 
+import {
+  LayoutDashboard,
+  LineChart,
+  BarChartHorizontal,
+  ArrowRightLeft,
+  Brain,
+  Settings,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
-  RotateCcw,
-  FileText,
-  Moon,
-  LogOut
+  Briefcase,
+  Search,
+  BarChart
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
-const navSections = [
+const navItems = [
   {
-    title: "概览",
-    items: [
-      {
-        label: '仪表盘',
-        href: '/',
-        icon: Home,
-      }
-    ]
+    label: '仪表盘',
+    href: '/',
+    icon: LayoutDashboard,
   },
   {
-    title: "数据存储",
-    items: [
-      {
-        label: 'SQLite',
-        href: '/sqlite',
-        icon: Database,
-      },
-      {
-        label: 'DuckDB',
-        href: '/duckdb',
-        icon: Database,
-      },
-      {
-        label: 'SQL 编辑器',
-        href: '/sql-editor',
-        icon: FileText,
-      },
-      {
-        label: '向量数据',
-        href: '/vector-data',
-        icon: Layers,
-      }
-    ]
+    label: '交易中心',
+    href: '/trading',
+    icon: ArrowRightLeft,
   },
   {
-    title: "监控与分析",
-    items: [
-      {
-        label: '分析面板',
-        href: '/analytics',
-        icon: BarChart,
-      },
-      {
-        label: '实时数据',
-        href: '/real-time',
-        icon: ExternalLink,
-      }
-    ]
+    label: '市场分析',
+    href: '/market',
+    icon: LineChart,
   },
   {
-    title: "系统管理",
-    items: [
-      {
-        label: '设置',
-        href: '/settings',
-        icon: Settings,
-      }
-    ]
+    label: '投资组合',
+    href: '/portfolio',
+    icon: Briefcase,
   },
   {
-    title: "Backup & Recovery",
-    items: [
-      {
-        label: 'Backup',
-        href: '/backup',
-        icon: RotateCcw,
-      }
-    ]
+    label: '回测系统',
+    href: '/backtest',
+    icon: BarChart,
   },
   {
-    title: "Documentation",
-    items: [
-      {
-        label: 'Documentation',
-        href: '/documentation',
-        icon: FileText,
-      }
-    ]
-  }
+    label: 'AI代理',
+    href: '/agents',
+    icon: Brain,
+  },
+  {
+    label: '数据管理',
+    href: '/data',
+    icon: BarChartHorizontal,
+  },
+  {
+    label: '系统设置',
+    href: '/settings',
+    icon: Settings,
+  },
 ];
 
 export function Sidebar() {
@@ -108,83 +66,79 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <aside className={cn(
-      "border-r border-[#e2e8f0] dark:border-[#2d3748] bg-sidebar h-screen flex flex-col relative group transition-all duration-200 ease-in-out",
-      collapsed ? "w-16" : "w-[225px]"
-    )}>
-      <div className="p-4 flex items-center justify-between border-b border-[#e2e8f0] dark:border-[#2d3748]">
-        <div className={cn(
-          "flex items-center transition-opacity",
-          collapsed ? "opacity-0 invisible" : "opacity-100 visible"
-        )}>
-          <div className="h-8 w-8 rounded-sm bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg mr-2">
-            <Database className="h-5 w-5" />
+      <div className={cn(
+          "border-r bg-background h-screen flex flex-col relative group",
+          collapsed ? "w-16" : "w-64"
+      )}>
+        <div className="p-4 flex items-center justify-between">
+          <div className={cn(
+              "flex items-center transition-opacity",
+              collapsed ? "opacity-0 invisible" : "opacity-100 visible"
+          )}>
+            <div className="h-8 w-8 rounded-full bg-primary/90 flex items-center justify-center text-white font-bold text-lg mr-3">
+              L
+            </div>
+            <h1 className="text-xl font-bold tracking-tight">LumosFund</h1>
           </div>
-          <h1 className="text-base font-semibold text-sidebar-foreground">LumosDB</h1>
+          <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="h-6 w-6 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </button>
         </div>
-        <button 
-          onClick={() => setCollapsed(!collapsed)}
-          className="h-6 w-6 rounded-sm bg-sidebar-accent/30 flex items-center justify-center hover:bg-sidebar-accent/50 transition-colors"
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </button>
-      </div>
 
-      <div className="flex-1 overflow-auto py-2">
-        {navSections.map((section, idx) => (
-          <div key={idx} className="mb-4">
-            {!collapsed && (
-              <h2 className="text-xs uppercase font-medium text-muted-foreground px-4 py-1">
-                {section.title}
-              </h2>
-            )}
-            <nav className="grid gap-1 px-2 mt-1">
-              {section.items.map((item) => {
-                const isActive = pathname === item.href;
-                
-                return (
+        <div className={cn(
+            "px-3 mb-4",
+            collapsed ? "opacity-0 invisible" : "opacity-100 visible"
+        )}>
+          <div className="relative">
+            <Search className="h-4 w-4 absolute left-2 top-2.5 text-muted-foreground" />
+            <input
+                type="text"
+                placeholder="搜索..."
+                className="w-full h-9 rounded-md bg-muted pl-8 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto py-2">
+          <nav className="grid gap-1 px-2">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+
+              return (
                   <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                      isActive 
-                        ? "bg-secondary/50 text-foreground font-medium" 
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary/30",
-                      collapsed && "justify-center px-2"
-                    )}
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted",
+                          isActive ? "bg-muted font-medium" : "text-muted-foreground",
+                          collapsed && "justify-center"
+                      )}
                   >
-                    <item.icon className={cn(
-                      "h-4 w-4", 
-                      isActive ? "text-primary" : "text-muted-foreground"
-                    )} />
+                    <item.icon className={cn("h-4 w-4", isActive && "text-primary")} />
                     {!collapsed && <span>{item.label}</span>}
                   </Link>
-                );
-              })}
-            </nav>
-          </div>
-        ))}
-      </div>
+              );
+            })}
+          </nav>
+        </div>
 
-      <div className="p-4 border-t border-sidebar-border">
-        <div className={cn("flex flex-col space-y-2", collapsed && "items-center")}>
-          <Link
-            href="/theme"
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-secondary/30"
-          >
-            <Moon className="h-4 w-4" />
-            {!collapsed && <span>暗色主题</span>}
-          </Link>
-          <Link
-            href="/logout"
-            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-secondary/30"
-          >
-            <LogOut className="h-4 w-4" />
-            {!collapsed && <span>退出登录</span>}
-          </Link>
+        <div className="p-4 border-t">
+          <div className={cn(
+              "flex items-center gap-3",
+              collapsed && "justify-center"
+          )}>
+            <div className="h-8 w-8 rounded-full bg-muted" />
+            {!collapsed && (
+                <div>
+                  <p className="text-sm font-medium">用户名</p>
+                  <p className="text-xs text-muted-foreground">user@example.com</p>
+                </div>
+            )}
+          </div>
         </div>
       </div>
-    </aside>
   );
 } 

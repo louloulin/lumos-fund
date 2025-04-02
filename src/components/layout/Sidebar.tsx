@@ -128,7 +128,7 @@ export function Sidebar() {
         ))}
       </div>
 
-      <div className="mt-auto p-3 border-t border-[#e2e8f0] dark:border-[#2d3748]">
+      <div className="mt-auto p-3 border-t border-border">
         <div className="space-y-1">
           <a 
             href="https://github.com/lumos-fund" 
