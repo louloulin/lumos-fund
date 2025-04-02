@@ -1,59 +1,78 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { Portfolio } from '@/types/trading';
 
-// 模拟用户投资组合数据库
-const mockPortfolios: Record<string, any> = {
+// 添加动态配置，解决静态导出问题
+export const dynamic = 'force-dynamic';
+
+// 模拟数据
+const mockPortfolios: Record<string, Portfolio> = {
   'user1': {
-    id: 'user1',
-    name: '成长型投资组合',
-    cash: 35642.18,
-    totalValue: 187469.23,
+    id: 'portfolio1',
+    name: '我的投资组合',
+    cash: 25000,
+    totalValue: 145280.64,
     lastUpdated: new Date().toISOString(),
     positions: [
-      { ticker: 'AAPL', name: 'Apple Inc.', shares: 50, avgPrice: 175.32, currentPrice: 186.23 },
-      { ticker: 'MSFT', name: 'Microsoft Corp.', shares: 25, avgPrice: 375.45, currentPrice: 426.39 },
-      { ticker: 'NVDA', name: 'NVIDIA Corp.', shares: 15, avgPrice: 760.23, currentPrice: 902.50 },
-      { ticker: 'AMZN', name: 'Amazon.com Inc.', shares: 30, avgPrice: 165.78, currentPrice: 180.75 },
-      { ticker: 'GOOGL', name: 'Alphabet Inc.', shares: 20, avgPrice: 142.36, currentPrice: 153.51 }
+      { 
+        ticker: 'AAPL', 
+        name: 'Apple Inc.', 
+        shares: 100, 
+        avgPrice: 175.32, 
+        currentPrice: 183.58 
+      },
+      { 
+        ticker: 'MSFT', 
+        name: 'Microsoft Corporation', 
+        shares: 50, 
+        avgPrice: 350.75, 
+        currentPrice: 426.89 
+      },
+      { 
+        ticker: 'NVDA', 
+        name: 'NVIDIA Corporation', 
+        shares: 30, 
+        avgPrice: 750.45, 
+        currentPrice: 894.32 
+      },
+      { 
+        ticker: 'GOOGL', 
+        name: 'Alphabet Inc.', 
+        shares: 40, 
+        avgPrice: 135.68, 
+        currentPrice: 151.24 
+      }
     ],
     performance: {
-      day: 1.24,
-      week: 2.37,
-      month: 4.85,
-      year: 16.42,
-      total: 28.73
+      day: 1.2,
+      week: 2.8,
+      month: 5.7,
+      year: 22.4,
+      total: 45.3
     },
-    transactions: [
-      { id: 'tx1', type: 'buy', ticker: 'NVDA', shares: 5, price: 845.32, timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'tx2', type: 'sell', ticker: 'TSLA', shares: 10, price: 175.48, timestamp: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: 'tx3', type: 'buy', ticker: 'AAPL', shares: 20, price: 172.45, timestamp: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() }
-    ]
+    transactions: []
   }
 };
 
-// 获取投资组合
-export async function GET(req: Request) {
-  try {
-    // 从URL获取用户ID和其他参数
-    const url = new URL(req.url);
-    const userId = url.searchParams.get('userId') || 'user1';
-    
-    // 检查是否存在这个用户的投资组合
-    if (!mockPortfolios[userId]) {
-      return NextResponse.json(
-        { error: '未找到投资组合' },
-        { status: 404 }
-      );
-    }
-    
-    // 返回投资组合数据
-    return NextResponse.json(mockPortfolios[userId], { status: 200 });
-  } catch (error) {
-    console.error('投资组合API错误:', error);
+export async function GET(request: NextRequest) {
+  const userId = request.nextUrl.searchParams.get('userId');
+  
+  if (!userId) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '获取投资组合数据时出错' },
-      { status: 500 }
+      { error: 'Missing userId parameter' },
+      { status: 400 }
     );
   }
+  
+  const portfolio = mockPortfolios[userId];
+  
+  if (!portfolio) {
+    return NextResponse.json(
+      { error: 'Portfolio not found' },
+      { status: 404 }
+    );
+  }
+  
+  return NextResponse.json(portfolio);
 }
 
 // 更新投资组合

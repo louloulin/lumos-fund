@@ -1,42 +1,60 @@
 import { z } from 'zod';
 import { createTool } from '@mastra/core/tools';
+import { marketDataService } from '@/services/marketDataService';
 
 export const stockPriceTool = createTool({
-  name: 'stockPriceTool',
+  id: 'stockPriceTool',
   description: '获取股票的当前和历史价格数据',
-  schema: z.object({
+  inputSchema: z.object({
     ticker: z.string().describe('股票代码'),
     startDate: z.string().optional().describe('开始日期 (YYYY-MM-DD 格式)'),
     endDate: z.string().optional().describe('结束日期 (YYYY-MM-DD 格式)'),
     interval: z.enum(['daily', 'weekly', 'monthly']).optional().describe('数据间隔'),
   }),
-  execute: async ({ ticker, startDate, endDate, interval = 'daily' }) => {
+  execute: async ({ context }) => {
+    const { ticker, startDate, endDate, interval = 'daily' } = context;
+    
     try {
-      // 实际项目中会调用API或Rust后端
-      // 这里使用模拟数据
-      const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+      // 确保市场数据服务已初始化
+      await marketDataService.initialize();
       
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // 获取实时股票数据
+      const stockData = await marketDataService.fetchStockData(ticker);
       
-      // 返回模拟数据
+      // 获取实时股票报价
+      const stockQuote = await marketDataService.fetchStockQuote(ticker);
+      
       return {
         ticker,
-        currentPrice: 185.92,
+        currentPrice: stockData.price,
+        change: stockData.change,
+        changePercent: stockData.changePercent,
+        volume: stockData.volume,
+        marketCap: stockData.marketCap,
+        pe: stockData.pe,
+        dividendYield: stockData.dividendYield,
+        high52: stockData.high52,
+        low52: stockData.low52,
         historicalData: [
-          { date: '2023-12-01', open: 184.20, high: 186.84, low: 183.57, close: 185.92, volume: 58324156 },
-          { date: '2023-11-30', open: 182.96, high: 184.12, low: 182.04, close: 183.92, volume: 54892345 },
-          { date: '2023-11-29', open: 181.54, high: 183.87, low: 181.33, close: 182.96, volume: 51234789 },
-          // 更多历史数据...
+          { 
+            date: new Date().toISOString().split('T')[0], 
+            open: stockData.open, 
+            high: stockData.high, 
+            low: stockData.low, 
+            close: stockData.price, 
+            volume: stockData.volume 
+          }
         ],
         metadata: {
           currency: 'USD',
           exchange: 'NASDAQ',
-          lastUpdated: new Date().toISOString(),
-        }
+          lastUpdated: stockData.timestamp,
+        },
+        quote: stockQuote
       };
-    } catch (error) {
-      throw new Error(`Failed to fetch stock price data: ${error.message}`);
+    } catch (error: any) {
+      console.error(`获取股票价格数据失败:`, error);
+      throw new Error(`获取股票价格数据失败: ${error.message}`);
     }
   }
 }); 
