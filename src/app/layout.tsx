@@ -1,33 +1,35 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import { Sidebar } from '@/components/layout/Sidebar';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { ThemeProvider } from '@/components/ui/theme-provider';
+import { Sidebar } from '@/components/Sidebar';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'LumosFund - AI驱动的量化投资平台',
-  description: '通过AI代理网络，实现高效的量化交易策略',
+  title: 'LumosFund - 智能投资平台',
+  description: '基于AI的量化交易与投资分析平台',
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body className={inter.className}>
-        <div className="flex h-screen">
-          <Sidebar />
-          <main className="flex-1 overflow-auto">
-            <div className="absolute top-4 right-4 z-10">
-              <ThemeToggle />
-            </div>
-            {children}
-          </main>
-        </div>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <div className="flex h-screen overflow-hidden">
+            <Sidebar />
+            <main className="flex-1 overflow-auto p-6">{children}</main>
+          </div>
+        </ThemeProvider>
       </body>
     </html>
   );
