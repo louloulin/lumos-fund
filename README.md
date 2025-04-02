@@ -1,36 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LumosFund - AI驱动的量化交易平台
 
-## Getting Started
+LumosFund是一个基于AI代理的量化交易平台，使用Mastra框架实现多个专业AI代理协同分析市场，制定交易策略。平台结合了现代Web技术（Next.js、Shadcn UI）和桌面应用框架（Tauri），为用户提供强大且友好的交易分析体验。
 
-First, run the development server:
+## 功能特点
+
+- 🤖 **多AI代理协作**：价值投资、技术分析、投资组合管理等多个专业AI代理协同工作
+- 📊 **多维度分析**：基本面、技术面综合分析
+- 📈 **直观可视化**：现代化UI界面，展示分析结果和投资组合表现
+- 🔍 **透明决策过程**：AI推理过程完全透明，帮助用户理解交易决策依据
+- 💻 **跨平台支持**：支持Windows、macOS和Linux
+
+## 技术栈
+
+- **前端**：Next.js、Shadcn UI、TypeScript、Zustand
+- **AI框架**：Mastra（基于TypeScript的AI代理框架）
+- **桌面框架**：Tauri（Rust）
+- **LLM集成**：OpenAI、Anthropic等
+
+## 开始使用
+
+### 前提条件
+
+- Node.js 18+
+- Rust（用于Tauri开发）
+- API密钥（OpenAI、金融数据API等）
+
+### 安装
+
+1. 克隆此仓库
+
+```bash
+git clone https://github.com/yourusername/lumos-fund.git
+cd lumos-fund
+```
+
+2. 安装依赖
+
+```bash
+npm install
+```
+
+3. 创建`.env`文件并设置必要的API密钥（见`.env.example`）
+
+4. 启动开发服务器
+
+```bash
+./start-dev.sh
+```
+
+或者手动启动：
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 项目结构
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+lumos-fund/
+├── src/                         # Next.js源代码
+│   ├── app/                     # Next.js App Router
+│   │   ├── api/                 # API路由
+│   │   ├── dashboard/           # 仪表盘页面
+│   │   ├── analysis/            # 分析页面
+│   │   └── ...
+│   ├── components/              # UI组件
+│   │   ├── ui/                  # 基础UI组件（Shadcn UI）
+│   │   ├── analysis/            # 分析相关组件
+│   │   ├── layout/              # 布局组件
+│   │   └── ...
+│   ├── mastra/                  # Mastra AI代理
+│   │   ├── agents/              # AI代理实现
+│   │   ├── tools/               # 代理工具
+│   │   └── workflows/           # 代理工作流
+│   └── lib/                     # 工具函数和库
+├── src-tauri/                   # Tauri/Rust源代码
+│   ├── src/                     # Rust源代码
+│   └── Cargo.toml               # Rust依赖配置
+└── ...
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 贡献
 
-## Learn More
+欢迎贡献代码、报告问题或提出建议！请先阅读[贡献指南](CONTRIBUTING.md)。
 
-To learn more about Next.js, take a look at the following resources:
+## 许可证
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+本项目采用[MIT许可证](LICENSE)。
