@@ -2,13 +2,15 @@ import { vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 // 创建模拟的Next.js请求
-export function createMockRequest(method: string, body: any): Request {
-  return new Request('http://localhost:3000/api/test', {
+export function createMockRequest(method: string, body: any, queryString?: string): Request {
+  const url = `http://localhost:3000/api/test${queryString || ''}`;
+  
+  return new Request(url, {
     method,
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: body ? JSON.stringify(body) : undefined,
   });
 }
 
