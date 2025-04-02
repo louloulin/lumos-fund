@@ -120,3 +120,193 @@
     @apply bg-background text-foreground;
   }
 }
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 10%;
+    
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 10%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 210 100% 50%;
+    
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 40% 98%;
+    
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  /* 侧边栏样式 */
+  .sidebar {
+    @apply bg-background border-r border-border w-[225px] h-screen flex flex-col;
+  }
+  
+  .sidebar-header {
+    @apply p-4 flex items-center;
+  }
+  
+  .sidebar-section {
+    @apply mt-2 px-2;
+  }
+  
+  .sidebar-section-title {
+    @apply text-xs uppercase font-medium text-muted-foreground px-3 py-1;
+  }
+  
+  .sidebar-item {
+    @apply flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm my-0.5 transition-colors hover:bg-secondary text-foreground hover:text-foreground font-normal;
+  }
+
+  .sidebar-item.active {
+    @apply bg-secondary text-foreground;
+  }
+
+  /* 统计卡片样式 */
+  .stat-card {
+    @apply bg-card rounded-lg border border-border p-4 relative;
+  }
+
+  .stat-icon {
+    @apply absolute right-3 top-3.5 text-muted-foreground;
+  }
+
+  .stat-value {
+    @apply text-2xl font-medium mt-2;
+  }
+
+  .stat-description {
+    @apply text-xs text-muted-foreground;
+  }
+  
+  .stat-trend {
+    @apply flex items-center gap-0.5;
+  }
+  
+  .stat-trend-up {
+    @apply text-emerald-500;
+  }
+  
+  .stat-trend-down {
+    @apply text-red-500;
+  }
+
+  /* 标签页样式 */
+  .tabs-container {
+    @apply border-b border-border flex gap-4;
+  }
+  
+  .tab-button {
+    @apply px-1 py-2 text-sm transition-colors border-b-2 border-transparent -mb-px;
+  }
+  
+  .tab-button.active {
+    @apply border-primary text-foreground font-medium;
+  }
+  
+  .tab-button:not(.active) {
+    @apply text-muted-foreground hover:text-foreground hover:border-border;
+  }
+  
+  /* 内容卡片样式 */
+  .content-card {
+    @apply bg-card rounded-lg border border-border;
+  }
+  
+  .content-card-header {
+    @apply p-4 border-b border-border;
+  }
+  
+  .content-card-title {
+    @apply text-base font-medium;
+  }
+  
+  .content-card-body {
+    @apply p-6;
+  }
+  
+  /* 页面标题样式 */
+  .page-title {
+    @apply text-2xl font-medium;
+  }
+
+  .page-description {
+    @apply text-muted-foreground text-sm mt-1;
+  }
+  
+  /* 空状态样式 */
+  .empty-state {
+    @apply flex flex-col items-center justify-center h-60 text-center p-6;
+  }
+  
+  .empty-state-icon {
+    @apply text-muted-foreground mb-4;
+  }
+  
+  .empty-state-text {
+    @apply text-sm text-muted-foreground;
+  }
+}

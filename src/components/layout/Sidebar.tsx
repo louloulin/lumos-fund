@@ -1,50 +1,149 @@
+'use client';
+
 import React from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import {
+  IconHome,
+  IconChartBar, 
+  IconDatabase,
+  IconCode,
+  IconRobot,
+  IconSettings,
+  IconUser,
+  IconHistory,
+  IconBrandGithub,
+  IconLogout,
+  IconChartPie,
+  IconChartLine,
+} from '@tabler/icons-react';
 
-interface SidebarProps {
-  className?: string;
-}
+// 侧边栏菜单项定义
+const menuItems = [
+  {
+    title: '概览',
+    items: [
+      {
+        title: '仪表盘',
+        href: '/dashboard',
+        icon: <IconHome size={16} stroke={1.5} />,
+      },
+    ],
+  },
+  {
+    title: '数据存储',
+    items: [
+      {
+        title: '股票数据',
+        href: '/stocks',
+        icon: <IconChartLine size={16} stroke={1.5} />,
+      },
+      {
+        title: '数据源',
+        href: '/datasources',
+        icon: <IconDatabase size={16} stroke={1.5} />,
+      },
+    ],
+  },
+  {
+    title: 'AI代理',
+    items: [
+      {
+        title: '代理管理',
+        href: '/agents',
+        icon: <IconRobot size={16} stroke={1.5} />,
+      },
+      {
+        title: '投资策略',
+        href: '/strategies',
+        icon: <IconCode size={16} stroke={1.5} />,
+      },
+    ],
+  },
+  {
+    title: '监控与分析',
+    items: [
+      {
+        title: '分析面板',
+        href: '/analytics',
+        icon: <IconChartBar size={16} stroke={1.5} />,
+      },
+      {
+        title: '交易历史',
+        href: '/history',
+        icon: <IconHistory size={16} stroke={1.5} />,
+      },
+    ],
+  },
+  {
+    title: '系统管理',
+    items: [
+      {
+        title: '设置',
+        href: '/settings',
+        icon: <IconSettings size={16} stroke={1.5} />,
+      },
+      {
+        title: '个人资料',
+        href: '/profile',
+        icon: <IconUser size={16} stroke={1.5} />,
+      },
+    ],
+  },
+];
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar() {
   const pathname = usePathname();
-
-  const navItems = [
-    { href: '/dashboard', label: '仪表盘' },
-    { href: '/analysis', label: '分析' },
-    { href: '/backtest', label: '回测' },
-    { href: '/agents', label: 'AI代理' },
-    { href: '/settings', label: '设置' },
-  ];
-
+  
   return (
-    <div className={cn("flex flex-col h-full bg-background border-r", className)}>
-      <div className="px-4 py-6">
-        <h2 className="text-2xl font-bold text-primary">LumosFund</h2>
-        <p className="text-sm text-muted-foreground">AI驱动的量化交易平台</p>
+    <div className="sidebar">
+      <div className="sidebar-header">
+        <div className="flex items-center gap-2.5">
+          <IconChartPie size={18} className="text-foreground" stroke={2} />
+          <span className="font-medium">LumosFund</span>
+        </div>
       </div>
-      <nav className="flex-1 px-2 py-4 space-y-1">
-        {navItems.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              "flex items-center px-3 py-2 rounded-md transition-colors",
-              pathname === item.href
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            {item.label}
-          </Link>
+      
+      <div className="flex-1 overflow-y-auto">
+        {menuItems.map((section, i) => (
+          <div key={i} className="sidebar-section">
+            <div className="sidebar-section-title">
+              {section.title}
+            </div>
+            {section.items.map((item, j) => (
+              <Link 
+                key={j} 
+                href={item.href}
+                className={cn(
+                  "sidebar-item",
+                  pathname === item.href && "active"
+                )}
+              >
+                <span className="text-current opacity-70">{item.icon}</span>
+                <span>{item.title}</span>
+              </Link>
+            ))}
+          </div>
         ))}
-      </nav>
-      <div className="p-4 border-t">
-        <Button variant="outline" className="w-full">
-          创建AI策略
-        </Button>
+      </div>
+
+      <div className="mt-auto p-3 border-t border-border">
+        <div className="space-y-1">
+          <a 
+            href="https://github.com/lumos-fund" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="sidebar-item"
+          >
+            <IconBrandGithub size={16} stroke={1.5} className="opacity-70" />
+            <span>GitHub</span>
+          </a>
+          <button className="sidebar-item w-full text-left">
+            <IconLogout size={16} stroke={1.5} className="text-destructive opacity-70" />
+            <span className="text-destructive">退出登录</span>
+          </button>
+        </div>
       </div>
     </div>
   );

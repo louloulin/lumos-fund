@@ -1,8 +1,17 @@
 "use client";
 
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StockAnalysisCard } from "@/components/analysis/StockAnalysisCard";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { StatsCards } from '@/components/dashboard/StatsCards';
+import { 
+  DashboardTabs, 
+  DashboardTab, 
+  DashboardTabTrigger, 
+  DashboardTabContent 
+} from '@/components/dashboard/DashboardTabs';
+import { IconInfoCircle, IconLayoutDashboard, IconServerCog } from '@tabler/icons-react';
 
 // 示例数据
 const portfolioData = {
@@ -44,66 +53,105 @@ const stockAnalysis = {
 
 export default function DashboardPage() {
   return (
-    <AppLayout>
-      <div className="flex flex-col gap-4 p-4 md:p-8">
-        <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-bold tracking-tight">仪表盘</h2>
-        </div>
-        
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                投资组合总值
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${portfolioData.totalValue.toLocaleString()}</div>
-              <p className={`text-xs ${portfolioData.dailyChange >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {portfolioData.dailyChange >= 0 ? '+' : ''}{portfolioData.dailyChange.toLocaleString()} 
-                ({portfolioData.dailyChangePercent.toFixed(2)}%)
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                持仓数量
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{portfolioData.holdings.length}</div>
-              <p className="text-xs text-muted-foreground">股票种类</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                最佳表现
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">GOOGL</div>
-              <p className="text-xs text-green-500">+2.1%</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                最差表现
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">MSFT</div>
-              <p className="text-xs text-red-500">-0.5%</p>
-            </CardContent>
-          </Card>
-        </div>
-        
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-4">
-          <StockAnalysisCard {...stockAnalysis} />
-        </div>
+    <div className="p-6">
+      {/* 页面标题 */}
+      <div className="mb-6">
+        <h1 className="page-title">投资平台概览</h1>
+        <p className="page-description">监控您的交易策略和市场表现</p>
       </div>
-    </AppLayout>
+
+      {/* 统计卡片 */}
+      <div className="mb-8">
+        <StatsCards />
+      </div>
+
+      {/* 标签页和内容区域 */}
+      <div>
+        <h2 className="text-lg font-medium mb-3">概览分析与最近查询</h2>
+        
+        <DashboardTabs defaultTab="overview">
+          <DashboardTab value="overview">
+            <DashboardTabTrigger value="overview">概览分析</DashboardTabTrigger>
+            <DashboardTabContent value="overview">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="content-card">
+                  <div className="content-card-header">
+                    <div className="flex items-center gap-2">
+                      <h3 className="content-card-title">平台健康状况</h3>
+                    </div>
+                  </div>
+                  <div className="content-card-body">
+                    <div className="empty-state">
+                      <div className="empty-state-icon">
+                        <IconInfoCircle size={24} stroke={1.5} />
+                      </div>
+                      <p className="empty-state-text">性能指标可视化将显示在这里</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="content-card">
+                  <div className="content-card-header">
+                    <div className="flex items-center gap-2">
+                      <h3 className="content-card-title">系统资源</h3>
+                    </div>
+                  </div>
+                  <div className="content-card-body">
+                    <div className="empty-state">
+                      <div className="empty-state-icon">
+                        <IconInfoCircle size={24} stroke={1.5} />
+                      </div>
+                      <p className="empty-state-text">系统资源监控将显示在这里</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DashboardTabContent>
+          </DashboardTab>
+          
+          <DashboardTab value="analytics">
+            <DashboardTabTrigger value="analytics">分析</DashboardTabTrigger>
+            <DashboardTabContent value="analytics">
+              <div className="content-card">
+                <div className="content-card-header">
+                  <div className="flex items-center gap-2">
+                    <h3 className="content-card-title">性能分析</h3>
+                  </div>
+                </div>
+                <div className="content-card-body">
+                  <div className="empty-state">
+                    <div className="empty-state-icon">
+                      <IconInfoCircle size={24} stroke={1.5} />
+                    </div>
+                    <p className="empty-state-text">交易策略性能分析将显示在这里</p>
+                  </div>
+                </div>
+              </div>
+            </DashboardTabContent>
+          </DashboardTab>
+          
+          <DashboardTab value="queries">
+            <DashboardTabTrigger value="queries">最近查询</DashboardTabTrigger>
+            <DashboardTabContent value="queries">
+              <div className="content-card">
+                <div className="content-card-header">
+                  <div className="flex items-center gap-2">
+                    <h3 className="content-card-title">查询历史</h3>
+                  </div>
+                </div>
+                <div className="content-card-body">
+                  <div className="empty-state">
+                    <div className="empty-state-icon">
+                      <IconInfoCircle size={24} stroke={1.5} />
+                    </div>
+                    <p className="empty-state-text">查询历史将显示在这里</p>
+                  </div>
+                </div>
+              </div>
+            </DashboardTabContent>
+          </DashboardTab>
+        </DashboardTabs>
+      </div>
+    </div>
   );
 } 

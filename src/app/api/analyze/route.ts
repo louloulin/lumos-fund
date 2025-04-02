@@ -1,61 +1,70 @@
 import { NextResponse } from 'next/server';
-import { tradingDecisionWorkflow } from '@/mastra/workflows/tradingDecisionWorkflow';
+import { mastra } from '@/mastra';
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { ticker, portfolio } = await request.json();
+    // 解析请求数据
+    const body = await req.json();
+    const { ticker, portfolio } = body;
     
-    // 这里是模拟数据，实际应用中会从API或数据库获取
-    const financialData = {
-      ticker,
-      period: 'annual',
-      metrics: {
-        'return_on_equity': 0.245,
-        'return_on_assets': 0.178,
-        'debt_to_equity': 1.2,
-        'current_ratio': 1.8,
-        'quick_ratio': 1.5,
-        'operating_margin': 0.21,
-        'net_margin': 0.185,
-        'price_to_earnings': 18.5,
-        'price_to_book': 3.2,
-        'price_to_sales': 1.9,
-        'revenue_growth': 0.15,
-        'earnings_growth': 0.12,
-      }
-    };
+    if (!ticker) {
+      return NextResponse.json(
+        { error: '缺少股票代码' },
+        { status: 400 }
+      );
+    }
     
-    const priceData = {
-      ticker,
-      currentPrice: 185.92,
-      historicalData: [
-        { date: '2023-12-01', open: 184.20, high: 186.84, low: 183.57, close: 185.92, volume: 58324156 },
-        { date: '2023-11-30', open: 182.96, high: 184.12, low: 182.04, close: 183.92, volume: 54892345 },
-        { date: '2023-11-29', open: 181.54, high: 183.87, low: 181.33, close: 182.96, volume: 51234789 },
-      ]
-    };
+    // 获取工作流
+    const workflow = mastra.getWorkflow('tradingDecisionWorkflow');
     
-    // 调用Mastra工作流
-    const result = await tradingDecisionWorkflow.execute({
+    // 执行工作流
+    const result = await workflow.execute({
       context: {
         ticker,
-        data: {
-          financial: financialData,
-          price: priceData,
-        },
-        portfolio: portfolio || {
-          cash: 100000,
-          positions: []
-        },
-        cash: portfolio?.cash || 100000,
+        portfolio: portfolio || { cash: 0, positions: [] },
       }
     });
     
-    return NextResponse.json(result);
+    // 返回分析结果
+    return NextResponse.json(result, { status: 200 });
   } catch (error) {
-    console.error('Analysis error:', error);
+    console.error('分析API错误:', error);
     return NextResponse.json(
-      { error: 'Failed to analyze stock' },
+      { error: error instanceof Error ? error.message : '处理请求时出错' },
+      { status: 500 }
+    );
+  }
+}
+
+// 支持流式响应的API
+export async function OPTIONS(req: Request) {
+  try {
+    // 解析请求数据
+    const body = await req.json();
+    const { ticker, question } = body;
+    
+    if (!ticker) {
+      return NextResponse.json(
+        { error: '缺少股票代码' },
+        { status: 400 }
+      );
+    }
+    
+    // 使用价值投资代理进行分析（流式响应）
+    const agent = mastra.getAgent('valueInvestingAgent');
+    
+    // 创建提示词
+    const prompt = question || `分析 ${ticker} 股票，提供投资建议`;
+    
+    // 生成流式响应
+    const stream = await agent.stream(prompt);
+    
+    // 返回流式响应
+    return stream.toDataStreamResponse();
+  } catch (error) {
+    console.error('流式API错误:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : '处理流式请求时出错' },
       { status: 500 }
     );
   }
