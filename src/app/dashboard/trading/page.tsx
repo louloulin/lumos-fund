@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from 'react';
-import { FaShoppingCart, FaChartLine, FaHistory } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { FaShoppingCart, FaChartLine, FaHistory, FaRobot, FaSpinner } from 'react-icons/fa';
+import { getStockAnalysis, getMarketInsights } from '@/lib/mastra';
 
 // 标签页组件
 function Tabs({ tabs, activeTab, setActiveTab }: { tabs: {id: string, label: string, icon: any}[], activeTab: string, setActiveTab: (id: string) => void }) {
@@ -28,9 +29,62 @@ function Tabs({ tabs, activeTab, setActiveTab }: { tabs: {id: string, label: str
 // 交易中心子标签页配置
 const tradingSubTabs = [
   { id: 'trade', label: '买入/卖出', icon: FaShoppingCart },
+  { id: 'ai', label: 'AI智能分析', icon: FaRobot },
   { id: 'orders', label: '订单历史', icon: FaHistory },
   { id: 'market', label: '行情数据', icon: FaChartLine }
 ];
+
+// AI分析结果组件
+function AIAnalysisResult({ analysis, loading }: { analysis: string | null, loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-60">
+        <FaSpinner className="animate-spin text-indigo-600 mr-2" size={24} />
+        <span>AI正在分析中，请稍候...</span>
+      </div>
+    );
+  }
+  
+  if (!analysis) {
+    return (
+      <div className="text-center p-10 text-gray-500">
+        请在左侧输入股票代码并点击"AI分析"按钮
+      </div>
+    );
+  }
+  
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none">
+      <div dangerouslySetInnerHTML={{ __html: analysis.replace(/\n/g, '<br/>') }} />
+    </div>
+  );
+}
+
+// 市场洞察组件
+function MarketInsights({ insights, loading }: { insights: string | null, loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <FaSpinner className="animate-spin text-indigo-600 mr-2" size={20} />
+        <span>加载市场洞察中...</span>
+      </div>
+    );
+  }
+  
+  if (!insights) {
+    return (
+      <div className="text-center p-6 text-gray-500">
+        暂无市场洞察数据
+      </div>
+    );
+  }
+  
+  return (
+    <div className="prose prose-sm dark:prose-invert max-w-none">
+      <div dangerouslySetInnerHTML={{ __html: insights.replace(/\n/g, '<br/>') }} />
+    </div>
+  );
+}
 
 // 订单历史项
 function OrderHistoryItem({ date, type, symbol, price, quantity, status }: 
@@ -80,12 +134,60 @@ export default function TradingPage() {
   const [activeSubTab, setActiveSubTab] = useState<string>('trade');
   const [orderType, setOrderType] = useState<string>('buy');
   const [orderPrice, setOrderPrice] = useState<string>('market');
+  const [stockSymbol, setStockSymbol] = useState<string>('');
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [marketInsights, setMarketInsights] = useState<string | null>(null);
+  const [loadingAnalysis, setLoadingAnalysis] = useState<boolean>(false);
+  const [loadingInsights, setLoadingInsights] = useState<boolean>(false);
+  
+  // 自动加载市场洞察
+  useEffect(() => {
+    if (activeSubTab === 'ai' && !marketInsights && !loadingInsights) {
+      loadMarketInsights();
+    }
+  }, [activeSubTab, marketInsights, loadingInsights]);
+  
+  // 获取AI分析
+  const handleAIAnalysis = async () => {
+    if (!stockSymbol.trim()) {
+      alert('请输入股票代码');
+      return;
+    }
+    
+    setLoadingAnalysis(true);
+    setAiAnalysis(null);
+    
+    try {
+      const result = await getStockAnalysis(stockSymbol);
+      setAiAnalysis(result);
+    } catch (error) {
+      console.error('AI分析出错:', error);
+      setAiAnalysis('分析过程中发生错误，请稍后重试。');
+    } finally {
+      setLoadingAnalysis(false);
+    }
+  };
+  
+  // 获取市场洞察
+  const loadMarketInsights = async () => {
+    setLoadingInsights(true);
+    
+    try {
+      const result = await getMarketInsights();
+      setMarketInsights(result);
+    } catch (error) {
+      console.error('获取市场洞察出错:', error);
+      setMarketInsights('获取市场洞察时发生错误，请稍后重试。');
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
   
   return (
     <div className="p-6">
       <div className="mb-6">
         <h2 className="text-2xl font-semibold mb-2">交易中心</h2>
-        <p className="text-sm text-gray-500">买卖股票、查看订单和行情</p>
+        <p className="text-sm text-gray-500">买卖股票、AI分析、查看订单和行情</p>
       </div>
       
       {/* 子标签页 */}
@@ -131,6 +233,8 @@ export default function TradingPage() {
                     type="text" 
                     className="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded-l-md focus:outline-none focus:ring-2 focus:ring-indigo-500" 
                     placeholder="输入股票代码或公司名称" 
+                    value={stockSymbol}
+                    onChange={(e) => setStockSymbol(e.target.value.toUpperCase())}
                   />
                   <button className="bg-indigo-600 text-white px-4 py-2 rounded-r-md hover:bg-indigo-700">
                     查询
@@ -269,6 +373,101 @@ export default function TradingPage() {
                       <div>¥824.52 x 3</div>
                       <div className="text-xs text-gray-500">2023/3/25</div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* AI智能分析内容 */}
+      {activeSubTab === 'ai' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-gray-700">
+            <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+              <h3 className="font-medium">AI智能投资分析</h3>
+              <div>
+                <select className="p-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md mr-2">
+                  <option value="all">综合分析</option>
+                  <option value="fundamental">基本面分析</option>
+                  <option value="technical">技术面分析</option>
+                  <option value="sentiment">情绪面分析</option>
+                </select>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="mb-4">
+                <div className="flex">
+                  <input 
+                    type="text" 
+                    className="flex-grow p-2 border border-gray-300 dark:border-gray-600 rounded-l-md focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                    placeholder="输入股票代码" 
+                    value={stockSymbol}
+                    onChange={(e) => setStockSymbol(e.target.value.toUpperCase())}
+                  />
+                  <button 
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-r-md hover:bg-indigo-700 flex items-center"
+                    onClick={handleAIAnalysis}
+                    disabled={loadingAnalysis}
+                  >
+                    {loadingAnalysis ? <FaSpinner className="animate-spin mr-2" /> : <FaRobot className="mr-2" />}
+                    AI分析
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  使用人工智能分析股票的基本面、技术面和市场情绪，给出投资建议
+                </p>
+              </div>
+              
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <AIAnalysisResult analysis={aiAnalysis} loading={loadingAnalysis} />
+              </div>
+            </div>
+          </div>
+          
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-gray-700">
+              <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="font-medium">市场洞察</h3>
+              </div>
+              <div className="p-4">
+                <MarketInsights insights={marketInsights} loading={loadingInsights} />
+              </div>
+            </div>
+            
+            <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-gray-700">
+              <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="font-medium">热门分析</h3>
+              </div>
+              <div className="p-4">
+                <div className="space-y-3">
+                  <div className="py-2 border-b border-gray-100 dark:border-gray-700">
+                    <div className="flex justify-between mb-1">
+                      <div className="font-medium">AAPL</div>
+                      <div className="text-green-500 font-medium">买入</div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      苹果公司基本面强劲，技术指标显示上升趋势，建议长期持有。
+                    </p>
+                  </div>
+                  <div className="py-2 border-b border-gray-100 dark:border-gray-700">
+                    <div className="flex justify-between mb-1">
+                      <div className="font-medium">MSFT</div>
+                      <div className="text-green-500 font-medium">买入</div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      微软云业务增长强劲，AI布局领先，长期增长前景看好。
+                    </p>
+                  </div>
+                  <div className="py-2">
+                    <div className="flex justify-between mb-1">
+                      <div className="font-medium">TSLA</div>
+                      <div className="text-gray-500 font-medium">持有</div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      特斯拉面临竞争加剧，但技术领先优势仍在，建议持有观望。
+                    </p>
                   </div>
                 </div>
               </div>
