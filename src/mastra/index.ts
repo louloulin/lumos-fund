@@ -15,6 +15,7 @@ import { macroAnalysisAgent } from './agents/macroAnalysisAgent';
 import { sentimentAnalysisAgent } from './agents/sentimentAnalysisAgent';
 import { stockAgent, valueInvestingAgent, growthInvestingAgent, trendInvestingAgent } from './agents/stockAgent';
 import { technicalAnalysisAgent } from './agents/technicalAnalysisAgent';
+import { strategyRecommendationAgent } from './agents/strategyRecommendationAgent';
 
 // 导入工具 - 修复导入冲突
 import { financialMetricsTool } from './tools/financialMetrics';
@@ -22,6 +23,7 @@ import { technicalIndicatorsTool } from './tools/technicalIndicatorTools';
 import { newsSentimentTool } from './tools/newsSentiment';
 import { factorModelTool } from './tools/factorModelTools';
 import { statisticalArbitrageTool } from './tools/statisticalArbitrageTools';
+import { strategyRecommendationTool } from './tools/strategyRecommendationTool';
 
 const logger = createLogger('mastra');
 
@@ -236,7 +238,8 @@ export const mastra = new Mastra({
     technicalAnalysisAgent,
     portfolioOptimizationAgent,
     executionAgent,
-    tradingAgent
+    tradingAgent,
+    strategyRecommendationAgent
   },
   workflows: {
     tradingDecisionWorkflow
@@ -247,7 +250,8 @@ export const mastra = new Mastra({
     technicalIndicatorsTool,
     newsSentimentTool,
     factorModelTool,
-    statisticalArbitrageTool
+    statisticalArbitrageTool,
+    strategyRecommendationTool
   }
 });
 
@@ -276,6 +280,8 @@ mastra.getAgent = (name: string) => {
       return executionAgent;
     case 'tradingAgent':
       return tradingAgent;
+    case 'strategyRecommendationAgent':
+      return strategyRecommendationAgent;
     default:
       throw new Error(`Agent ${name} not found`);
   }
@@ -303,7 +309,8 @@ export {
   technicalAnalysisAgent,
   portfolioOptimizationAgent,
   executionAgent,
-  tradingAgent
+  tradingAgent,
+  strategyRecommendationAgent
 };
 
 // 导出工作流
@@ -316,5 +323,6 @@ export {
   newsSentimentTool,
   factorModelTool,
   statisticalArbitrageTool,
-  stockPriceTool
+  stockPriceTool,
+  strategyRecommendationTool
 }; 
