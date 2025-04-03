@@ -19,8 +19,46 @@ import { toast } from '@/components/ui/use-toast';
 import { ArrowLeft, Save, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
+// 设置类型定义
+type GeneralSettings = {
+  theme: string;
+  language: string;
+  notifications: boolean;
+};
+
+type TradingSettings = {
+  defaultInitialCapital: number;
+  defaultStockCode: string;
+  defaultRiskTolerance: string;
+  autosaveAnalysis: boolean;
+  realTimeData: boolean;
+};
+
+type AISettings = {
+  preferredModel: string;
+  detailedAnalysis: boolean;
+  memory: boolean;
+  maxResponseTokens: number;
+};
+
+type BacktestSettings = {
+  defaultPeriod: string;
+  defaultStrategy: string;
+  includeDividends: boolean;
+  includeTransactionCosts: boolean;
+  transactionFeeRate: number;
+  slippageRate: number;
+};
+
+type AppSettings = {
+  general: GeneralSettings;
+  trading: TradingSettings;
+  ai: AISettings;
+  backtest: BacktestSettings;
+};
+
 // 默认设置
-const defaultSettings = {
+const defaultSettings: AppSettings = {
   general: {
     theme: 'system',
     language: 'zh-CN',
@@ -50,7 +88,7 @@ const defaultSettings = {
 };
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState(defaultSettings);
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -93,7 +131,7 @@ export default function SettingsPage() {
   
   // 更新单个设置字段
   const updateSetting = (
-    category: keyof typeof settings,
+    category: keyof AppSettings,
     field: string,
     value: any
   ) => {
@@ -201,7 +239,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch
                     checked={settings.general.notifications}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked: boolean) => 
                       updateSetting('general', 'notifications', checked)
                     }
                   />
@@ -273,7 +311,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch
                     checked={settings.trading.autosaveAnalysis}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked: boolean) => 
                       updateSetting('trading', 'autosaveAnalysis', checked)
                     }
                   />
@@ -290,7 +328,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch
                     checked={settings.trading.realTimeData}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked: boolean) => 
                       updateSetting('trading', 'realTimeData', checked)
                     }
                   />
@@ -340,7 +378,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch
                     checked={settings.ai.detailedAnalysis}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked: boolean) => 
                       updateSetting('ai', 'detailedAnalysis', checked)
                     }
                   />
@@ -357,7 +395,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch
                     checked={settings.ai.memory}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked: boolean) => 
                       updateSetting('ai', 'memory', checked)
                     }
                   />
@@ -375,7 +413,7 @@ export default function SettingsPage() {
                     max={4000}
                     min={500}
                     step={100}
-                    onValueChange={(value) => 
+                    onValueChange={(value: number[]) => 
                       updateSetting('ai', 'maxResponseTokens', value[0])
                     }
                   />
@@ -450,7 +488,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch
                     checked={settings.backtest.includeDividends}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked: boolean) => 
                       updateSetting('backtest', 'includeDividends', checked)
                     }
                   />
@@ -467,7 +505,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch
                     checked={settings.backtest.includeTransactionCosts}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked: boolean) => 
                       updateSetting('backtest', 'includeTransactionCosts', checked)
                     }
                   />
@@ -487,7 +525,7 @@ export default function SettingsPage() {
                         max={0.003}
                         min={0}
                         step={0.0001}
-                        onValueChange={(value) => 
+                        onValueChange={(value: number[]) => 
                           updateSetting('backtest', 'transactionFeeRate', value[0])
                         }
                       />
@@ -505,7 +543,7 @@ export default function SettingsPage() {
                         max={0.01}
                         min={0}
                         step={0.001}
-                        onValueChange={(value) => 
+                        onValueChange={(value: number[]) => 
                           updateSetting('backtest', 'slippageRate', value[0])
                         }
                       />
