@@ -1,7 +1,15 @@
+import 'server-only';
 import { createLogger } from '@/lib/logger.server';
 import { getStrategyRecommendation } from '@/mastra/agents/strategyRecommendationAgent';
 
 const logger = createLogger('strategyActions');
+
+// 内存缓存，用于存储用户偏好
+const userPreferences = new Map<string, any>();
+
+// 内存缓存，用于存储策略历史
+// 实际项目中应使用数据库存储
+const strategyHistory = new Map<string, Array<any>>();
 
 /**
  * 获取投资策略推荐
@@ -16,8 +24,9 @@ export async function getInvestmentStrategy(params: {
   riskTolerance: 'low' | 'moderate' | 'high';
   investmentHorizon: 'short' | 'medium' | 'long';
   marketCondition?: 'bull' | 'bear' | 'neutral' | 'volatile';
+  userId?: string;
 }) {
-  const { ticker, riskTolerance, investmentHorizon, marketCondition } = params;
+  const { ticker, riskTolerance, investmentHorizon, marketCondition, userId } = params;
   
   try {
     logger.info('获取投资策略推荐', { ticker, riskTolerance, investmentHorizon, marketCondition });
@@ -28,6 +37,11 @@ export async function getInvestmentStrategy(params: {
       investmentHorizon,
       marketCondition
     );
+    
+    // 如果提供了用户ID，保存到历史记录
+    if (userId) {
+      saveToHistory(userId, recommendation);
+    }
     
     return {
       success: true,
@@ -61,10 +75,17 @@ export async function saveStrategyPreferences(params: {
   const { userId, riskTolerance, investmentHorizon, marketView, preferredStrategies } = params;
   
   try {
-    logger.info('保存用户策略偏好', { userId, riskTolerance, investmentHorizon, marketView, preferredStrategies });
+    logger.info('保存用户策略偏好', { userId, riskTolerance, investmentHorizon, marketView });
     
-    // 这里应该实现保存到数据库的逻辑
-    // 当前仅返回模拟成功
+    // 保存用户偏好到存储
+    // 实际项目中应保存到数据库
+    userPreferences.set(userId, {
+      riskTolerance,
+      investmentHorizon,
+      marketView,
+      preferredStrategies,
+      lastUpdated: new Date().toISOString()
+    });
     
     return {
       success: true,
@@ -94,35 +115,18 @@ export async function getStrategyHistory(userId: string, limit: number = 10) {
   try {
     logger.info('获取用户策略推荐历史', { userId, limit });
     
-    // 这里应该实现从数据库获取历史记录的逻辑
-    // 当前仅返回模拟数据
+    // 从存储获取历史记录
+    // 实际项目中应从数据库查询
+    const history = strategyHistory.get(userId) || [];
     
-    const mockHistory = [
-      {
-        id: '1',
-        ticker: 'AAPL',
-        timestamp: new Date(Date.now() - 3600000 * 24 * 2).toISOString(),
-        riskTolerance: 'moderate',
-        investmentHorizon: 'medium',
-        primaryStrategy: 'value',
-        secondaryStrategy: 'growth',
-        allocation: { value: 60, growth: 40 }
-      },
-      {
-        id: '2',
-        ticker: 'MSFT',
-        timestamp: new Date(Date.now() - 3600000 * 24 * 5).toISOString(),
-        riskTolerance: 'high',
-        investmentHorizon: 'long',
-        primaryStrategy: 'growth',
-        secondaryStrategy: 'momentum',
-        allocation: { growth: 70, momentum: 30 }
-      }
-    ];
+    // 限制返回数量并按时间倒序排序
+    const limitedHistory = history
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, limit);
     
     return {
       success: true,
-      data: mockHistory.slice(0, limit)
+      data: limitedHistory
     };
   } catch (error) {
     logger.error('获取用户策略推荐历史失败', { userId, error });
@@ -132,4 +136,57 @@ export async function getStrategyHistory(userId: string, limit: number = 10) {
       error: `获取策略历史失败: ${error instanceof Error ? error.message : String(error)}`
     };
   }
+}
+
+/**
+ * 获取用户策略偏好
+ */
+export async function getUserPreferences(userId: string) {
+  try {
+    logger.info('获取用户策略偏好', { userId });
+    
+    // 从存储获取用户偏好
+    // 实际项目中应从数据库查询
+    const preferences = userPreferences.get(userId);
+    
+    if (!preferences) {
+      return {
+        success: false,
+        error: '未找到用户偏好'
+      };
+    }
+    
+    return {
+      success: true,
+      data: preferences
+    };
+  } catch (error) {
+    logger.error('获取用户策略偏好失败', error);
+    return {
+      success: false,
+      error: `获取用户偏好失败: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+}
+
+/**
+ * 保存策略推荐到历史记录
+ */
+function saveToHistory(userId: string, recommendation: any) {
+  // 获取现有历史记录或创建新数组
+  const userHistory = strategyHistory.get(userId) || [];
+  
+  // 添加新记录
+  userHistory.unshift({
+    ...recommendation,
+    savedAt: new Date().toISOString()
+  });
+  
+  // 限制历史记录数量，保留最近的50条
+  if (userHistory.length > 50) {
+    userHistory.length = 50;
+  }
+  
+  // 更新存储
+  strategyHistory.set(userId, userHistory);
 } 

@@ -64,6 +64,7 @@ LumosFund将是一个基于AI Agent的量化交易平台，融合了AI智能对�
    - 风险管理代理 ✅
    - 投资组合优化代理 ✅
    - 执行代理（负责生成交易信号） ✅
+   - 策略推荐代理（根据风险偏好和市场状况推荐策略） ✅
 
 ### 3.2 Mastra实现示例
 
@@ -122,6 +123,40 @@ export const financialMetricsTool = createTool({
     // 可以是直接调用金融数据API，或者通过Rust后端处理
     const result = await fetch(`/api/financial-metrics?ticker=${ticker}&period=${period}`);
     return result.json();
+  }
+});
+
+// src/tools/strategyRecommendationTool.ts
+import { z } from 'zod';
+import { createTool } from '@mastra/core/tools';
+
+export const strategyRecommendationTool = createTool({
+  name: 'strategyRecommendationTool',
+  description: '根据市场状况、风险承受能力和投资期限推荐最优交易策略',
+  schema: z.object({
+    ticker: z.string().describe('股票代码'),
+    riskTolerance: z.enum(['low', 'moderate', 'high']).describe('风险承受能力'),
+    investmentHorizon: z.enum(['short', 'medium', 'long']).describe('投资期限'),
+    marketCondition: z.enum(['bull', 'bear', 'neutral', 'volatile']).optional().describe('市场状况'),
+    fundamentalData: z.any().optional().describe('基本面数据'),
+    technicalData: z.any().optional().describe('技术指标数据')
+  }),
+  execute: async ({ ticker, riskTolerance, investmentHorizon, marketCondition, fundamentalData, technicalData }) => {
+    // 评估不同策略的适合性分数
+    const strategyScores = evaluateStrategyScores(riskTolerance, investmentHorizon, marketCondition, fundamentalData, technicalData);
+    
+    // 确定推荐的策略组合
+    const { primaryStrategy, secondaryStrategy, allocation, parameters } = determineRecommendedStrategies(strategyScores, riskTolerance);
+    
+    // 生成解释和交易规则
+    return {
+      ticker,
+      recommendationDate: new Date().toISOString(),
+      riskProfile: { tolerance: riskTolerance, horizon: investmentHorizon, marketCondition },
+      recommendation: { primaryStrategy, secondaryStrategy, allocation, parameters },
+      strategyScores,
+      confidence: calculateConfidenceScore(strategyScores, fundamentalData, technicalData)
+    };
   }
 });
 ```
@@ -214,25 +249,25 @@ export const tradingDecisionWorkflow = new Workflow({
    - 投资组合概览 ✅
    - 性能指标 ✅
    - 最近交易 ✅
-   - 市场概况 ✅
+   - 市场摘要 ✅
 
-2. **分析界面** ✅
-   - 多代理分析结果展示 ✅
-   - 交互式图表 ✅
-   - 基本面数据卡片 ✅
-   - AI推理过程展示 ✅
+2. **交易中心** ✅
+   - 股票搜索和基本信息 ✅
+   - AI分析见解 ✅
+   - 交易执行界面 ✅
+   - 历史订单 ✅
 
-3. **回测平台** ✅
+3. **策略推荐** ✅
+   - 风险偏好设置 ✅
+   - 市场状况分析 ✅
+   - 个性化策略推荐 ✅
+   - 参数配置 ✅
+
+4. **回测系统** ✅
    - 策略配置 ✅
-   - 参数设置 ✅
    - 回测结果可视化 ✅
-   - 绩效指标分析 ✅
-
-4. **代理管理** ✅
-   - 代理选择与配置 ✅
-   - 自定义代理参数 ✅
-   - 代理协作设置 ✅
-   - 代理性能分析 ✅
+   - 绩效统计 ✅
+   - 优化建议 ✅
 
 ### 4.2 UI组件示例
 
@@ -315,11 +350,13 @@ backend/
 │   │   │   ├── mod.rs
 │   │   │   ├── financial_data.rs   # 金融数据API
 │   │   │   ├── trading.rs          # 交易API
-│   │   │   └── backtesting.rs      # 回测API
+│   │   │   ├── backtesting.rs      # 回测API
+│   │   │   └── strategy.rs         # 策略推荐API ✅
 │   │   ├── services/               # 业务逻辑
 │   │   │   ├── mod.rs
 │   │   │   ├── data_provider.rs    # 数据提供服务
 │   │   │   ├── risk_manager.rs     # 风险管理
+│   │   │   ├── strategy.rs         # 策略推荐服务 ✅
 │   │   │   └── portfolio.rs        # 投资组合管理
 │   │   ├── models/                 # 数据模型
 │   │   │   ├── mod.rs
@@ -371,44 +408,37 @@ async fn get_financial_metrics(
 创建Next.js API路由与Rust后端和Mastra代理集成： ✅
 
 ```typescript
-// src/pages/api/analyze.ts
+// src/actions/strategy.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { tradingDecisionWorkflow } from '@/workflows/tradingDecisionWorkflow';
+import { getStrategyRecommendation } from '@/mastra/agents/strategyRecommendationAgent';
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+export async function getInvestmentStrategy(params: {
+  ticker: string;
+  riskTolerance: 'low' | 'moderate' | 'high';
+  investmentHorizon: 'short' | 'medium' | 'long';
+  marketCondition?: 'bull' | 'bear' | 'neutral' | 'volatile';
+}) {
   try {
-    const { ticker, portfolio } = req.body;
+    const { ticker, riskTolerance, investmentHorizon, marketCondition } = params;
     
-    // 调用Rust后端获取必要数据
-    const financialData = await fetch(`${process.env.BACKEND_URL}/financial-metrics?ticker=${ticker}`);
-    const priceData = await fetch(`${process.env.BACKEND_URL}/price-data?ticker=${ticker}`);
-    const newsData = await fetch(`${process.env.BACKEND_URL}/news?ticker=${ticker}`);
+    // 调用Mastra代理获取策略推荐
+    const recommendation = await getStrategyRecommendation(
+      ticker,
+      riskTolerance,
+      investmentHorizon,
+      marketCondition
+    );
     
-    // 调用Mastra工作流
-    const result = await tradingDecisionWorkflow.execute({
-      context: {
-        ticker,
-        data: {
-          financial: await financialData.json(),
-          price: await priceData.json(),
-          news: await newsData.json(),
-        },
-        portfolio,
-        cash: portfolio.cash || 0,
-      }
-    });
-    
-    return res.status(200).json(result);
+    return {
+      success: true,
+      data: recommendation
+    };
   } catch (error) {
-    console.error('Analysis error:', error);
-    return res.status(500).json({ error: 'Failed to analyze stock' });
+    console.error('Strategy recommendation error:', error);
+    return {
+      success: false,
+      error: `获取策略推荐失败: ${error instanceof Error ? error.message : String(error)}`
+    };
   }
 }
 ```
@@ -612,10 +642,18 @@ export default async function handler(
 ### 阶段2：AI代理系统（3个月） ✅
 
 1. 设计并实现Mastra代理 ✅
+   - 价值投资代理 ✅
+   - 成长投资代理 ✅
+   - 趋势投资代理 ✅
+   - 量化投资代理 ✅
+   - 风险管理代理 ✅
+   - 策略推荐代理 ✅
 2. 创建代理工作流 ✅
 3. 实现代理通信机制 ✅
 4. 集成LLM提供商 ✅
 5. 开发代理测试框架 ✅
+   - 单元测试 ✅
+   - 集成测试 ✅
 
 ### 阶段3：交易功能（2个月） ✅
 

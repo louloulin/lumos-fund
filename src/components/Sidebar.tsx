@@ -13,7 +13,8 @@ import {
   ChevronRight,
   Briefcase,
   Search,
-  BarChart
+  BarChart,
+  Lightbulb
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,11 @@ const navItems = [
     label: '投资组合',
     href: '/dashboard/portfolio',
     icon: Briefcase,
+  },
+  {
+    label: '策略推荐',
+    href: '/strategy',
+    icon: Lightbulb,
   },
   {
     label: '回测系统',
