@@ -432,53 +432,283 @@ export async function runMixedBacktest(
   return runBacktest(ticker, initialCapital, startDate, endDate, mixedStrategy);
 }
 
-// 对比多种策略
+// 动量投资策略回测
+export async function runMomentumBacktest(
+  ticker: string,
+  initialCapital: number,
+  startDate: string,
+  endDate: string,
+  options?: {
+    maShortPeriod?: number;
+    maLongPeriod?: number;
+    rsiPeriod?: number;
+    rsiOverbought?: number;
+    rsiOversold?: number;
+  }
+): Promise<BacktestResult> {
+  // 默认参数
+  const maShortPeriod = options?.maShortPeriod || 20;
+  const maLongPeriod = options?.maLongPeriod || 50;
+  const rsiPeriod = options?.rsiPeriod || 14;
+  const rsiOverbought = options?.rsiOverbought || 70;
+  const rsiOversold = options?.rsiOversold || 30;
+  
+  // 动量策略
+  const momentumStrategy = (data: StockData[]) => {
+    const current = data[data.length - 1];
+    const previousDay = data[data.length - 2];
+    
+    // 计算短期和长期移动平均线
+    const shortMA = calculateMA(data, maShortPeriod);
+    const longMA = calculateMA(data, maLongPeriod);
+    
+    // 计算RSI
+    const rsi = calculateRSI(data, rsiPeriod);
+    
+    // 金叉和死叉信号
+    const isCrossUp = shortMA[shortMA.length - 2] <= longMA[longMA.length - 2] && 
+                      shortMA[shortMA.length - 1] > longMA[longMA.length - 1];
+    
+    const isCrossDown = shortMA[shortMA.length - 2] >= longMA[longMA.length - 2] && 
+                        shortMA[shortMA.length - 1] < longMA[longMA.length - 1];
+    
+    // 动量交易信号
+    let signal: 'buy' | 'sell' | 'hold' = 'hold';
+    
+    // 买入条件：金叉 且 RSI不在超买区域
+    if (isCrossUp && rsi < rsiOverbought) {
+      signal = 'buy';
+    }
+    // 卖出条件：死叉 或 RSI进入超买区域
+    else if (isCrossDown || rsi > rsiOverbought) {
+      signal = 'sell';
+    }
+    
+    return { signal };
+  };
+  
+  return runBacktest(ticker, initialCapital, startDate, endDate, momentumStrategy);
+}
+
+// 均值回归策略回测
+export async function runMeanReversionBacktest(
+  ticker: string,
+  initialCapital: number,
+  startDate: string,
+  endDate: string,
+  options?: {
+    bollingerPeriod?: number;
+    bollingerDeviation?: number;
+  }
+): Promise<BacktestResult> {
+  // 默认参数
+  const bollingerPeriod = options?.bollingerPeriod || 20;
+  const bollingerDeviation = options?.bollingerDeviation || 2;
+  
+  // 均值回归策略
+  const meanReversionStrategy = (data: StockData[]) => {
+    if (data.length < bollingerPeriod + 1) {
+      return { signal: 'hold' };
+    }
+    
+    const current = data[data.length - 1];
+    const previous = data[data.length - 2];
+    
+    // 计算布林带
+    const { middle, upper, lower } = calculateBollingerBands(data, bollingerPeriod, bollingerDeviation);
+    
+    // 均值回归信号
+    let signal: 'buy' | 'sell' | 'hold' = 'hold';
+    
+    // 买入条件：价格从下轨下方向上突破下轨
+    if (previous.close < lower[lower.length - 2] && current.close > lower[lower.length - 1]) {
+      signal = 'buy';
+    }
+    // 卖出条件：价格从上轨上方向下突破上轨
+    else if (previous.close > upper[upper.length - 2] && current.close < upper[upper.length - 1]) {
+      signal = 'sell';
+    }
+    
+    return { signal };
+  };
+  
+  return runBacktest(ticker, initialCapital, startDate, endDate, meanReversionStrategy);
+}
+
+// 多策略对比回测
 export async function runComparisonBacktest(
   ticker: string,
   initialCapital: number,
   startDate: string,
-  endDate: string
+  endDate: string,
+  strategies: string[],
+  options?: {
+    value?: {
+      peRatio?: number;
+      pbRatio?: number;
+      dividendYield?: number;
+    };
+    momentum?: {
+      maShortPeriod?: number;
+      maLongPeriod?: number;
+      rsiPeriod?: number;
+      rsiOverbought?: number;
+      rsiOversold?: number;
+    };
+    meanReversion?: {
+      bollingerPeriod?: number;
+      bollingerDeviation?: number;
+    };
+  }
 ): Promise<BacktestResult> {
   try {
-    // 运行各种策略
-    const valueResult = await runValueBacktest(ticker, initialCapital, startDate, endDate);
-    const technicalResult = await runTechnicalBacktest(ticker, initialCapital, startDate, endDate);
-    const sentimentResult = await runSentimentBacktest(ticker, initialCapital, startDate, endDate);
-    const riskResult = await runRiskBacktest(ticker, initialCapital, startDate, endDate);
-    const mixedResult = await runMixedBacktest(ticker, initialCapital, startDate, endDate);
+    const results: { [key: string]: any } = {};
     
-    // 合并结果
-    return {
-      // 使用混合策略的交易记录
-      equityCurve: mixedResult.equityCurve,
-      metrics: mixedResult.metrics,
-      trades: mixedResult.trades,
-      // 所有策略的权益曲线和指标
-      results: {
-        '价值策略': {
-          equityCurve: valueResult.equityCurve,
-          metrics: valueResult.metrics
-        },
-        '技术策略': {
-          equityCurve: technicalResult.equityCurve,
-          metrics: technicalResult.metrics
-        },
-        '情绪策略': {
-          equityCurve: sentimentResult.equityCurve,
-          metrics: sentimentResult.metrics
-        },
-        '风险策略': {
-          equityCurve: riskResult.equityCurve,
-          metrics: riskResult.metrics
-        },
-        '混合策略': {
-          equityCurve: mixedResult.equityCurve,
-          metrics: mixedResult.metrics
-        }
+    // 运行每个策略的回测
+    for (const strategy of strategies) {
+      let result;
+      
+      switch (strategy) {
+        case 'value':
+          result = await runValueBacktest(ticker, initialCapital, startDate, endDate, options?.value);
+          break;
+        case 'momentum':
+          result = await runMomentumBacktest(ticker, initialCapital, startDate, endDate, options?.momentum);
+          break;
+        case 'meanReversion':
+          result = await runMeanReversionBacktest(ticker, initialCapital, startDate, endDate, options?.meanReversion);
+          break;
+        default:
+          continue;
       }
+      
+      // 给策略命名
+      const strategyName = getStrategyDisplayName(strategy);
+      
+      // 存储结果
+      results[strategyName] = {
+        equityCurve: result.equityCurve,
+        metrics: result.metrics
+      };
+    }
+    
+    // 使用第一个策略作为基准结果
+    const firstStrategy = Object.keys(results)[0];
+    if (!firstStrategy) {
+      throw new Error('没有可用的策略结果');
+    }
+    
+    // 构建综合结果
+    const baseResult = await runValueBacktest(ticker, initialCapital, startDate, endDate);
+    
+    return {
+      ...baseResult,
+      results
     };
+    
   } catch (error) {
-    console.error('策略比较失败:', error);
+    console.error('多策略对比回测失败:', error);
     throw error;
+  }
+}
+
+// 辅助函数：计算移动平均线
+function calculateMA(data: StockData[], period: number): number[] {
+  const ma: number[] = [];
+  
+  for (let i = 0; i < data.length; i++) {
+    if (i < period - 1) {
+      ma.push(0);
+      continue;
+    }
+    
+    let sum = 0;
+    for (let j = 0; j < period; j++) {
+      sum += data[i - j].close;
+    }
+    
+    ma.push(sum / period);
+  }
+  
+  return ma;
+}
+
+// 辅助函数：计算RSI
+function calculateRSI(data: StockData[], period: number): number {
+  if (data.length <= period) {
+    return 50; // 默认返回中性值
+  }
+  
+  const prices = data.map(d => d.close);
+  const changes = [];
+  
+  for (let i = 1; i < prices.length; i++) {
+    changes.push(prices[i] - prices[i - 1]);
+  }
+  
+  const changesForRSI = changes.slice(-period);
+  
+  let gains = 0;
+  let losses = 0;
+  
+  changesForRSI.forEach(change => {
+    if (change > 0) {
+      gains += change;
+    } else {
+      losses -= change;
+    }
+  });
+  
+  if (losses === 0) {
+    return 100;
+  }
+  
+  const rs = gains / losses;
+  return 100 - (100 / (1 + rs));
+}
+
+// 辅助函数：计算布林带
+function calculateBollingerBands(data: StockData[], period: number, deviation: number): { 
+  middle: number[]; 
+  upper: number[]; 
+  lower: number[]; 
+} {
+  const middle = calculateMA(data, period);
+  const upper: number[] = [];
+  const lower: number[] = [];
+  
+  for (let i = 0; i < data.length; i++) {
+    if (i < period - 1) {
+      upper.push(0);
+      lower.push(0);
+      continue;
+    }
+    
+    // 计算标准差
+    let sum = 0;
+    for (let j = 0; j < period; j++) {
+      sum += Math.pow(data[i - j].close - middle[i], 2);
+    }
+    
+    const stdDev = Math.sqrt(sum / period);
+    
+    upper.push(middle[i] + deviation * stdDev);
+    lower.push(middle[i] - deviation * stdDev);
+  }
+  
+  return { middle, upper, lower };
+}
+
+// 辅助函数：获取策略显示名称
+function getStrategyDisplayName(strategy: string): string {
+  switch (strategy) {
+    case 'value':
+      return '价值投资';
+    case 'momentum':
+      return '动量策略';
+    case 'meanReversion':
+      return '均值回归';
+    default:
+      return strategy;
   }
 } 
