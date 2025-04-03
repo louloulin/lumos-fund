@@ -185,20 +185,31 @@ export async function runValueBacktest(
   ticker: string,
   initialCapital: number,
   startDate: string,
-  endDate: string
+  endDate: string,
+  options?: {
+    peRatio?: number;
+    pbRatio?: number;
+    dividendYield?: number;
+  }
 ): Promise<BacktestResult> {
   // 获取财务指标
   const financials = generateFinancialMetrics(ticker);
   
+  // 获取自定义参数
+  const peThreshold = options?.peRatio || 15;
+  const pbThreshold = options?.pbRatio || 1.5;
+  const dividendThreshold = options?.dividendYield || 0;
+  
   // 价值投资策略
-  const valueStrategy = (data: StockData[]) => {
+  const valueStrategy = (data: StockData[]): { signal: 'buy' | 'sell' | 'hold' } => {
     const current = data[data.length - 1];
     const previousDay = data[data.length - 2];
     
     // 基于PE和PB的简单价值策略
     const isPriceDecreasing = current.close < previousDay.close;
-    const isPELow = financials.pe_ratio < 15;
-    const isPBLow = financials.pb_ratio < 1.5;
+    const isPELow = financials.pe_ratio < peThreshold;
+    const isPBLow = financials.pb_ratio < pbThreshold;
+    const hasGoodDividend = financials.dividend_yield > dividendThreshold;
     
     // 价格下跌且估值低时买入
     if (isPriceDecreasing && isPELow && isPBLow) {
@@ -206,7 +217,7 @@ export async function runValueBacktest(
     }
     
     // 价格过高时卖出
-    if (financials.pe_ratio > 25 || financials.pb_ratio > 3) {
+    if (financials.pe_ratio > peThreshold * 1.5 || financials.pb_ratio > pbThreshold * 1.5) {
       return { signal: 'sell' };
     }
     
@@ -506,7 +517,7 @@ export async function runMeanReversionBacktest(
   const bollingerDeviation = options?.bollingerDeviation || 2;
   
   // 均值回归策略
-  const meanReversionStrategy = (data: StockData[]) => {
+  const meanReversionStrategy = (data: StockData[]): { signal: 'buy' | 'sell' | 'hold' } => {
     if (data.length < bollingerPeriod + 1) {
       return { signal: 'hold' };
     }
