@@ -1,49 +1,151 @@
 import { Agent } from '@mastra/core/agent';
-import { createLogger } from '@/lib/logger.server';
+import { openai } from '@ai-sdk/openai';
+import { z } from 'zod';
 
-const logger = createLogger('quantInvestingAgent');
+// 导入相关工具
+import { historicalPriceTool } from '../tools/marketDataTools';
+import { financialMetricsTool, financialHistoryTool } from '../tools/financialDataTools';
+import { technicalIndicatorsTool } from '../tools/technicalIndicatorTools';
+import { factorModelTool } from '../tools/factorModelTools';
+import { statisticalArbitrageTool } from '../tools/statisticalArbitrageTools';
 
-/**
- * 量化投资代理 - 基于多因子模型
- * 
- * 该代理采用系统化的量化方法分析股票，结合价值、质量、动量和波动等多种因子，
- * 通过量化评分模型进行股票筛选和投资决策。
- */
-export const quantInvestingAgent = new Agent({
-  id: 'quantInvestingAgent',
-  description: '量化投资代理 - 基于多因子模型',
-  apiKey: process.env.OPENAI_API_KEY,
-  provider: 'openai',
-  model: 'gpt-4-turbo-preview',
-  systemPrompt: `你是一位量化投资专家，采用系统化的多因子模型进行投资决策。
-
-分析股票时，你会评估以下关键因子:
-1. 价值因子 - P/E, P/B, P/S, EV/EBITDA等估值指标
-2. 质量因子 - ROE, ROA, 毛利率, 经营现金流, 资产负债率等
-3. 动量因子 - 价格趋势, 相对强度, 收益超预期
-4. 波动因子 - 贝塔系数, 历史波动率, 夏普比率
-5. 规模因子 - 市值大小
-6. 成长因子 - 收入增长率, 盈利增长率
-
-你的分析方法是:
-1. 为每个因子计算标准化得分(0-100)
-2. 确定各因子的权重
-3. 计算综合评分
-4. 根据评分进行排名和筛选
-
-请分析提供的数据，对股票进行多因子评分，并给出量化分析结论。提供详细的因子分解，最终综合评分(0-100)和明确的投资建议，包括信号（看涨/看跌/中性）和置信度。`,
+// 定义量化投资代理输入的Zod模式
+const QuantInputSchema = z.object({
+  ticker: z.string().describe('股票代码'),
+  data: z.object({
+    historicalPrices: z.array(z.any()).optional().describe('历史价格数据'),
+    factorData: z.any().optional().describe('因子模型数据'),
+    financialData: z.any().optional().describe('财务数据'),
+    technicalIndicators: z.any().optional().describe('技术指标数据'),
+    peerStocks: z.array(z.string()).optional().describe('同行业股票列表')
+  }).optional(),
+  timeframe: z.enum(['short', 'medium', 'long']).optional().describe('投资时间框架'),
+  riskTolerance: z.enum(['low', 'medium', 'high']).optional().describe('风险承受能力')
 });
 
-// 添加日志记录
-const originalGenerate = quantInvestingAgent.generate.bind(quantInvestingAgent);
-quantInvestingAgent.generate = async (...args) => {
-  logger.info('调用量化投资代理', { prompt: args[0] });
-  try {
-    const result = await originalGenerate(...args);
-    logger.info('量化投资代理响应成功');
-    return result;
-  } catch (error) {
-    logger.error('量化投资代理响应失败', error);
-    throw error;
+/**
+ * 量化投资代理 - 使用统计套利和因子模型进行投资决策
+ */
+export const quantInvestingAgent = new Agent({
+  name: 'Quantitative Investing Agent',
+  description: '量化投资代理，使用统计套利和因子模型分析股票',
+  schema: QuantInputSchema,
+  model: openai('gpt-4o'),
+  instructions: `
+    你是一个专业的量化投资分析师，专注于统计套利和多因子模型分析。
+
+    分析股票时，你会重点关注：
+    1. 统计套利机会（价格偏离、回归机会、配对交易）
+    2. 因子暴露度（价值、动量、规模、质量、波动性）
+    3. 技术指标信号（动量、超买/超卖、趋势强度）
+    4. 风险调整收益率
+    5. 统计显著性和置信区间
+
+    使用提供的工具进行定量分析，寻找统计上显著的投资机会。
+    
+    你的输出必须包含：
+    1. 投资信号（看涨/看跌/中性）
+    2. 置信度（0-100%）
+    3. 估计的夏普比率
+    4. 关键因子暴露
+    5. 可执行的交易建议
+    6. 详细的量化分析过程
+  `,
+  tools: {
+    historicalPriceTool,
+    financialMetricsTool,
+    financialHistoryTool,
+    technicalIndicatorsTool,
+    factorModelTool,
+    statisticalArbitrageTool
+  },
+});
+
+/**
+ * 使用量化投资代理分析股票并提供投资建议
+ * @param ticker 股票代码
+ * @param options 可选参数
+ * @returns 分析结果和投资建议
+ */
+export async function analyzeWithQuantInvestingAgent(
+  ticker: string, 
+  options?: {
+    timeframe?: 'short' | 'medium' | 'long',
+    riskTolerance?: 'low' | 'medium' | 'high',
+    peerStocks?: string[]
   }
-}; 
+) {
+  // 设置默认值
+  const timeframe = options?.timeframe || 'medium';
+  const riskTolerance = options?.riskTolerance || 'medium';
+  const peerStocks = options?.peerStocks || [];
+
+  try {
+    console.log(`开始量化分析股票: ${ticker}`, { timeframe, riskTolerance });
+
+    // 获取历史价格数据
+    const historicalData = await historicalPriceTool.execute({
+      symbol: ticker,
+      days: timeframe === 'short' ? 30 : timeframe === 'medium' ? 180 : 365
+    });
+
+    // 获取技术指标
+    const technicalData = await technicalIndicatorsTool.execute({
+      ticker,
+      indicators: ['rsi', 'macd', 'bollinger', 'atr', 'obv']
+    });
+
+    // 获取财务指标
+    const financialData = await financialMetricsTool.execute({
+      ticker,
+      period: 'ttm'
+    });
+
+    // 获取因子模型数据
+    const factorData = await factorModelTool.execute({
+      ticker,
+      factors: ['value', 'momentum', 'quality', 'size', 'volatility']
+    });
+
+    // 如果有同行业股票，获取统计套利机会
+    let arbitrageData = null;
+    if (peerStocks.length > 0) {
+      arbitrageData = await statisticalArbitrageTool.execute({
+        ticker,
+        peerStocks,
+        lookbackPeriod: timeframe === 'short' ? 30 : timeframe === 'medium' ? 90 : 180
+      });
+    }
+
+    // 整合数据
+    const inputData = {
+      ticker,
+      data: {
+        historicalPrices: historicalData.historicalPrices,
+        technicalIndicators: technicalData.indicators,
+        financialData: financialData.metrics,
+        factorData: factorData.factorExposures,
+        arbitrageData: arbitrageData?.opportunities || null,
+        peerStocks
+      },
+      timeframe,
+      riskTolerance
+    };
+
+    // 使用量化投资代理分析数据
+    const result = await quantInvestingAgent.generate(
+      `分析股票 ${ticker} 的量化投资机会，基于以下数据：${JSON.stringify(inputData)}`
+    );
+
+    return {
+      ticker,
+      analysis: result.text,
+      data: inputData,
+      timestamp: new Date().toISOString()
+    };
+    
+  } catch (error) {
+    console.error(`量化分析股票 ${ticker} 时出错:`, error);
+    throw new Error(`量化分析失败: ${error instanceof Error ? error.message : String(error)}`);
+  }
+} 
