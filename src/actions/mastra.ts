@@ -3,7 +3,9 @@
 import { z } from "zod";
 import { runValueBacktest, runMomentumBacktest, runMeanReversionBacktest, runComparisonBacktest } from "@/actions/backtest";
 
-// Mastra类型声明
+/**
+ * Mastra AI Agent类型声明
+ */
 type AgentResponse = {
   text: string;
   [key: string]: any;
@@ -18,6 +20,7 @@ type Agent = {
     enabled: boolean;
   };
   generate: (prompt: string) => Promise<AgentResponse>;
+  getWorkflow?: (name: string) => any;
 };
 
 type Tool = {
@@ -27,18 +30,20 @@ type Tool = {
   execute: (params: any) => Promise<any>;
 };
 
-// 模拟Mastra的OpenAI接口
+/**
+ * Mastra模拟实现
+ * 在生产环境中，这些会替换为实际的Mastra导入
+ */
 const openai = (model: string) => {
   return { model };
 };
 
-// 模拟创建工具函数
 const createTool = (config: Tool): Tool => {
   return config;
 };
 
 /**
- * 定义市场分析工具 - 让AI助手能够分析市场状况
+ * 市场分析工具 - 分析市场状况和趋势
  */
 const marketAnalysisTool = createTool({
   name: "marketAnalysis",
@@ -66,7 +71,9 @@ const marketAnalysisTool = createTool({
   },
 });
 
-// 回测工具参数类型
+/**
+ * 回测工具参数类型
+ */
 interface BacktestParams {
   ticker: string;
   initialCapital: number;
@@ -89,7 +96,7 @@ interface BacktestParams {
 }
 
 /**
- * 定义回测工具 - 使AI助手能够运行策略回测
+ * 回测工具 - 评估交易策略的历史表现
  */
 const backtestTool = createTool({
   name: "backtestStrategy",
@@ -153,7 +160,7 @@ const backtestTool = createTool({
           throw new Error(`不支持的策略类型: ${strategy}`);
       }
       
-      // 添加一些AI友好的分析
+      // 添加AI友好的分析
       const annualReturn = (result.metrics.annualizedReturn * 100).toFixed(2);
       const totalReturn = (result.metrics.totalReturn * 100).toFixed(2);
       const maxDrawdown = (result.metrics.maxDrawdown * 100).toFixed(2);
@@ -205,7 +212,9 @@ const backtestTool = createTool({
   },
 });
 
-// 策略推荐参数接口
+/**
+ * 策略推荐参数接口
+ */
 interface StrategyRecommendationParams {
   ticker: string;
   riskTolerance: "low" | "medium" | "high";
@@ -214,7 +223,7 @@ interface StrategyRecommendationParams {
 }
 
 /**
- * 定义策略推荐工具 - 让AI助手能够根据市场状况推荐合适的策略
+ * 策略推荐工具 - 根据投资者偏好和市场状况推荐交易策略
  */
 const strategyRecommendationTool = createTool({
   name: "recommendStrategy",
@@ -250,278 +259,442 @@ const strategyRecommendationTool = createTool({
           rsiOverbought: 70,
           rsiOversold: 30
         };
-        reasoning += "考虑到您中等的风险承受能力和当前市场环境，动量策略可能表现更好，追踪市场趋势。";
+        reasoning += "适中的风险承受能力配合当前市场状况，动量策略可能会有不错的表现。";
       } else {
         recommendedStrategies.push("meanReversion");
         parameters = {
           bollingerPeriod: 20,
           bollingerDeviation: 2
         };
-        reasoning += "考虑到您中等的风险承受能力和当前的熊市环境，均值回归策略更合适，寻找超卖机会。";
+        reasoning += "在熊市环境下，均值回归策略通常能够更好地捕捉反弹机会。";
       }
-    } else { // high risk tolerance
-      if (marketCondition === "bull") {
+    } else if (riskTolerance === "high") {
+      if (investmentHorizon === "short") {
         recommendedStrategies.push("momentum");
         parameters = {
           maShortPeriod: 10,
           maLongPeriod: 30,
-          rsiPeriod: 14,
-          rsiOverbought: 80,
-          rsiOversold: 40
+          rsiPeriod: 7,
+          rsiOverbought: 75,
+          rsiOversold: 25
         };
-        reasoning += "考虑到您较高的风险承受能力和当前牛市环境，激进的动量策略可能带来更高回报。";
+        reasoning += "高风险承受能力配合短期投资视野，激进的动量策略可能更适合您的需求。";
       } else {
-        recommendedStrategies = ["value", "meanReversion", "momentum"];
+        recommendedStrategies.push("value");
+        recommendedStrategies.push("momentum");
         parameters = {
-          multiStrategy: true
+          peRatio: 20,
+          pbRatio: 2.5,
+          dividendYield: 1.5,
+          maShortPeriod: 20,
+          maLongPeriod: 50
         };
-        reasoning += "考虑到您较高的风险承受能力，多策略组合可能是最佳选择，同时利用不同市场条件下的机会。";
+        reasoning += "长期投资视野配合高风险承受能力，混合策略可能会是更优选择，同时考虑价值和动量因素。";
       }
     }
     
-    // 投资期限影响参数调整
-    if (investmentHorizon === "short") {
-      reasoning += " 由于您的投资期限较短，策略参数已调整为更敏感地响应短期市场变化。";
-    } else if (investmentHorizon === "long") {
-      reasoning += " 由于您的投资期限较长，策略参数已调整为过滤短期噪音，专注长期趋势。";
-    }
-    
+    // 生成具体的策略推荐
     return {
       ticker,
       recommendedStrategies,
       primaryStrategy: recommendedStrategies[0],
       parameters,
       reasoning,
-      disclaimer: "此推荐仅供参考，不构成投资建议。实际投资决策应结合更多因素和专业意见。"
+      recommendationDate: new Date().toISOString(),
+      recommendation: `根据您的风险承受能力(${riskTolerance})和投资期限(${investmentHorizon})，针对${ticker}的最佳策略是${recommendedStrategies.join('+')}。${reasoning}`
     };
   },
 });
 
 /**
- * 创建AI交易助手
+ * AI交易代理实现
+ * 模拟Mastra AI Agent行为
  */
-export const tradingAgent = {
-  name: "AI交易助手",
-  instructions: `
-你是一位专业的AI量化交易助手，可以帮助用户分析市场、回测交易策略、推荐适合的投资方法。
+class MockMastraAgent implements Agent {
+  name: string;
+  instructions: string;
+  model: any;
+  tools: Record<string, any>;
+  memory?: { enabled: boolean };
 
-你的能力包括：
-1. 市场分析：分析特定股票的市场状况和趋势
-2. 策略回测：评估不同交易策略在历史数据上的表现
-3. 策略推荐：根据用户的风险偏好和投资目标推荐合适的交易策略
-
-你应该始终：
-- 提供清晰、专业的回答
-- 解释你的分析和推荐背后的逻辑
-- 对结果进行客观评估，避免过度乐观
-- 提醒用户投资风险
-- 使用准确的金融术语
-- 在适当的时候提供具体的数字和百分比
-  `,
-  model: openai("gpt-4o-mini"),
-  tools: {
-    marketAnalysisTool,
-    backtestTool,
-    strategyRecommendationTool
-  },
-  memory: {
-    enabled: true,
-  },
-  // 模拟生成回答的方法
-  generate: async (prompt: string): Promise<AgentResponse> => {
-    console.log(`[DEBUG] AI交易助手处理提示: ${prompt}`);
-    
-    // 简单回答生成逻辑，实际项目中会调用真实的AI模型
-    let response = `基于您的问题"${prompt}"，我的分析如下：\n\n`;
-    
-    // 检查是否包含某些关键词并生成相应回答
-    if (prompt.includes('分析') && prompt.match(/[A-Z]{2,}|[0-9]{6}/)) {
-      // 股票分析
-      const ticker = prompt.match(/[A-Z]{2,}|[0-9]{6}/)?.[0] || '';
-      response += `${ticker}目前整体趋势中性，近期走势受市场情绪影响波动较大。基本面方面，该公司财务状况稳健，PE处于行业平均水平。建议密切关注公司下周的财报发布，可能会带来波动性。`;
-    } else if (prompt.includes('回测') || prompt.includes('策略')) {
-      // 策略分析
-      response += `基于历史数据回测，动量策略在过去6个月表现较好，年化收益约12.3%，最大回撤8.5%。价值策略更稳健，年化收益8.7%，最大回撤仅5.2%。根据当前市场环境，建议配置70%价值+30%动量的混合策略，以平衡风险与收益。`;
-    } else if (prompt.includes('风险') || prompt.includes('管理')) {
-      // 风险管理
-      response += `当前市场波动性增加，建议：1)设置止损，控制单笔交易损失不超过投资组合的2%；2)提高分散度，单个行业占比不超过30%；3)保留15%现金仓位应对波动；4)使用均值回归策略可能更适合当前市场环境。`;
-    } else {
-      // 通用回答
-      response += `当前市场处于震荡调整阶段，A股估值处于历史中位数附近，美股科技股呈现高估状态。投资策略上建议采取稳健的价值投资方法，关注高股息、低估值且有竞争优势的公司。另建议做好资产配置，股票、债券、现金保持合理比例。`;
-    }
-    
-    return { text: response };
+  constructor({
+    name,
+    instructions,
+    model,
+    tools,
+    memory,
+  }: {
+    name: string;
+    instructions: string;
+    model: any;
+    tools: Record<string, Tool>;
+    memory?: { enabled: boolean };
+  }) {
+    this.name = name;
+    this.instructions = instructions;
+    this.model = model;
+    this.tools = tools;
+    this.memory = memory;
   }
-};
 
-/**
- * 模拟Mastra实例
- * 注：实际项目中需安装Mastra依赖并使用真实的Mastra API
- */
-export const mastra = {
-  agents: {
-    tradingAgent
-  },
-  // 获取特定代理
-  getAgent: (agentName: string) => {
-    return mastra.agents[agentName as keyof typeof mastra.agents];
-  },
-  // 模拟获取工作流的方法
-  getWorkflow: (workflowName: string) => {
-    return {
-      execute: async (params: any) => {
-        console.log(`[DEBUG] 执行工作流 ${workflowName} 参数:`, params);
-        // 模拟工作流执行结果
+  async generate(prompt: string): Promise<AgentResponse> {
+    console.log(`[${this.name}] 处理请求: ${prompt}`);
+    
+    try {
+      // 分析提示并决定使用哪个工具
+      const lowerPrompt = prompt.toLowerCase();
+      let response: any = null;
+      
+      // 根据提示内容选择合适的工具
+      if (lowerPrompt.includes('市场') || lowerPrompt.includes('分析') || lowerPrompt.includes('趋势')) {
+        const ticker = extractTicker(prompt) || 'AAPL';
+        const timeframe = lowerPrompt.includes('周') ? 'week' : 
+                         lowerPrompt.includes('月') ? 'month' : 'day';
+        
+        response = await this.tools.marketAnalysis.execute({
+          ticker,
+          timeframe
+        });
+        
         return {
-          result: "工作流执行成功",
-          context: params.context,
-          ticker: params.context.ticker,
-          decisions: {
-            signal: Math.random() > 0.5 ? "buy" : "sell",
-            confidence: Math.floor(Math.random() * 100),
-            reasoning: "基于综合分析，当前市场条件下该股票呈现较好的投资机会。"
-          }
+          text: `我已经分析了${ticker}的市场状况：${response.analysis}`,
+          result: response
+        };
+      } 
+      else if (lowerPrompt.includes('回测') || lowerPrompt.includes('测试') || lowerPrompt.includes('策略')) {
+        const ticker = extractTicker(prompt) || 'AAPL';
+        const strategy = lowerPrompt.includes('价值') ? 'value' :
+                       lowerPrompt.includes('动量') ? 'momentum' : 'meanReversion';
+        
+        response = await this.tools.backtestStrategy.execute({
+          ticker,
+          initialCapital: 10000,
+          startDate: '2022-01-01',
+          endDate: '2023-01-01',
+          strategy
+        });
+        
+        return {
+          text: `我已经为${ticker}回测了${strategy}策略：${response.summary}`,
+          result: response
+        };
+      }
+      else if (lowerPrompt.includes('推荐') || lowerPrompt.includes('建议')) {
+        const ticker = extractTicker(prompt) || 'AAPL';
+        const riskTolerance = lowerPrompt.includes('低风险') ? 'low' :
+                            lowerPrompt.includes('高风险') ? 'high' : 'medium';
+        const investmentHorizon = lowerPrompt.includes('短期') ? 'short' :
+                                lowerPrompt.includes('长期') ? 'long' : 'medium';
+        
+        response = await this.tools.recommendStrategy.execute({
+          ticker,
+          riskTolerance,
+          investmentHorizon,
+          marketCondition: 'neutral'
+        });
+        
+        return {
+          text: `基于您的偏好，${response.recommendation}`,
+          result: response
+        };
+      }
+      else {
+        // 默认回复
+        return {
+          text: `您好，我是${this.name}。我可以帮您分析市场、回测策略或推荐投资方法。请提供更具体的信息，如股票代码、风险偏好或投资期限等。`,
+        };
+      }
+    } catch (error: any) {
+      console.error(`[${this.name}] 处理错误:`, error);
+      return {
+        text: `很抱歉，处理您的请求时出现了错误: ${error.message || '未知错误'}`,
+        error: error.message
+      };
+    }
+  }
+
+  getWorkflow(name: string) {
+    // 模拟工作流获取功能
+    console.log(`[${this.name}] 获取工作流: ${name}`);
+    return {
+      execute: async (context: any) => {
+        console.log(`执行工作流 ${name} 使用上下文:`, context);
+        
+        // 模拟工作流执行
+        const results: any = {};
+        
+        // 对每种分析类型进行处理
+        if (name === 'tradingDecision') {
+          // 执行基本面分析
+          results.fundamental = await this.generate(`分析${context.ticker}的基本面`);
+          
+          // 执行技术分析
+          results.technical = await this.generate(`分析${context.ticker}的技术指标`);
+          
+          // 执行风险分析
+          results.risk = await this.generate(`评估${context.ticker}的投资风险`);
+          
+          // 生成最终建议
+          const recommendation = await this.generate(`基于分析结果，推荐${context.ticker}的交易策略`);
+          
+          return {
+            results,
+            recommendation,
+          };
+        }
+        
+        return {
+          text: `未找到工作流: ${name}`,
+          error: 'Workflow not found'
         };
       }
     };
   }
-};
+}
 
 /**
- * 测试Mastra AI代理
- * @param agentType 代理类型
- * @param prompt 提示词
- * @returns 代理响应内容
+ * 从提示中提取股票代码
  */
-export async function testAgent(agentType: string, prompt: string): Promise<string> {
-  try {
-    // 获取对应的代理
-    const agent = mastra.getAgent(agentType);
-    
-    // 生成响应
-    const response = await agent.generate(prompt);
-    return response.text;
-  } catch (error) {
-    console.error('代理调用错误:', error);
-    
-    // 格式化错误消息
-    const errorMessage = error instanceof Error 
-      ? error.message 
-      : '未知错误';
-    
-    throw new Error(`调用Mastra代理失败: ${errorMessage}`);
+function extractTicker(prompt: string): string | null {
+  // 简单地查找大写字母组合作为股票代码
+  const matches = prompt.match(/[A-Z]{2,6}/);
+  return matches ? matches[0] : null;
+}
+
+/**
+ * 交易助手代理 - 综合分析市场并提供交易建议
+ */
+const tradingAssistantAgent = new MockMastraAgent({
+  name: "Trading Assistant",
+  instructions: `你是一个专业的交易助手，帮助用户分析市场、回测策略并提供投资建议。
+  
+  使用提供的工具分析市场状况，回测不同的交易策略，并根据用户的风险偏好和投资目标推荐适合的投资方法。
+  
+  在每次回应中，请提供：
+  1. 清晰简洁的分析总结
+  2. 具体的数据支持你的观点
+  3. 明确的行动建议
+  4. 投资相关风险提示
+  
+  始终提醒用户投资有风险，市场预测不保证未来结果。`,
+  model: openai("gpt-4o"),
+  tools: {
+    marketAnalysis: marketAnalysisTool,
+    backtestStrategy: backtestTool,
+    recommendStrategy: strategyRecommendationTool
+  },
+  memory: { enabled: true }
+});
+
+/**
+ * 价值投资代理 - 巴菲特风格
+ */
+const valueInvestingAgent = new MockMastraAgent({
+  name: "Value Investing Expert",
+  instructions: `你是沃伦·巴菲特风格的价值投资专家。
+  
+  分析公司时，你会关注:
+  1. 持久的竞争优势（护城河）
+  2. 良好的管理质量和资本分配
+  3. 可理解的业务模型
+  4. 内在价值与市场价格的差距（安全边际）
+  5. 长期增长潜力
+  
+  使用提供的工具分析公司基本面，并寻找被低估的优质公司。`,
+  model: openai("gpt-4o"),
+  tools: {
+    marketAnalysis: marketAnalysisTool,
+    backtestStrategy: backtestTool
+  }
+});
+
+/**
+ * 技术分析代理 - 专注短期市场动态
+ */
+const technicalAnalysisAgent = new MockMastraAgent({
+  name: "Technical Analysis Expert",
+  instructions: `你是一位专业的技术分析师，专注于价格图表和技术指标分析。
+  
+  你擅长于:
+  1. 趋势识别与跟踪
+  2. 支撑位和阻力位分析
+  3. 各种技术指标解读（RSI、MACD、移动平均线等）
+  4. 图表形态识别
+  5. 交易量分析
+  
+  使用提供的工具分析价格走势和技术指标，寻找交易信号。`,
+  model: openai("gpt-4o"),
+  tools: {
+    marketAnalysis: marketAnalysisTool,
+    backtestStrategy: backtestTool
+  }
+});
+
+/**
+ * 风险管理代理 - 专注投资风险控制
+ */
+const riskManagementAgent = new MockMastraAgent({
+  name: "Risk Management Expert",
+  instructions: `你是一位风险管理专家，专注于控制投资组合风险。
+  
+  你关注的方面包括:
+  1. 投资组合多样化
+  2. 最大回撤管理
+  3. 头寸规模控制
+  4. 风险收益比评估
+  5. 相关性分析
+  
+  使用提供的工具评估投资风险，设计风险管理策略，确保投资安全。`,
+  model: openai("gpt-4o"),
+  tools: {
+    backtestStrategy: backtestTool,
+    recommendStrategy: strategyRecommendationTool
+  }
+});
+
+/**
+ * Mastra AI 实例
+ * 管理所有的AI代理和工具
+ */
+class MastraMock {
+  agents: Record<string, Agent>;
+
+  constructor({ agents }: { agents: Record<string, Agent> }) {
+    this.agents = agents;
+  }
+
+  getAgent(name: string): Agent {
+    const agent = this.agents[name];
+    if (!agent) {
+      throw new Error(`Agent not found: ${name}`);
+    }
+    return agent;
   }
 }
 
 /**
- * 获取股票分析
- * @param ticker 股票代码
- * @returns 股票分析结果
+ * 创建Mastra AI实例，导出供应用使用
  */
-export async function getStockAnalysis(ticker: string) {
+const mastra = new MastraMock({
+  agents: {
+    tradingAssistant: tradingAssistantAgent,
+    valueInvestor: valueInvestingAgent,
+    technicalAnalyst: technicalAnalysisAgent,
+    riskManager: riskManagementAgent
+  }
+});
+
+/**
+ * 股票分析行动 - 使用交易助手代理进行全面分析
+ */
+export async function getStockAnalysis(ticker: string): Promise<string> {
   try {
-    const agent = mastra.getAgent('tradingAgent');
-    const response = await agent.generate(`分析股票 ${ticker} 的投资价值，给出投资建议和理由。`);
+    const agent = mastra.getAgent('tradingAssistant');
+    if (!agent) {
+      throw new Error("Mastra agent not initialized");
+    }
+    const response = await agent.generate(`分析${ticker}的市场状况、技术指标和投资前景`);
     return response.text;
-  } catch (error) {
+  } catch (error: any) {
     console.error('股票分析错误:', error);
-    throw new Error(`股票分析失败: ${error instanceof Error ? error.message : String(error)}`);
+    return `分析错误: ${error.message || '未知错误'}`;
   }
 }
 
 /**
- * 获取市场洞察分析
- * @returns 市场洞察分析
+ * 市场洞察行动 - 获取整体市场情况
  */
-export async function getMarketInsights() {
+export async function getMarketInsights(ticker: string, timeframe: string): Promise<string> {
   try {
-    const agent = mastra.getAgent('macroAnalysisAgent');
-    const response = await agent.generate('给出当前市场的主要趋势和洞察，包括主要指数、行业表现和重要事件影响。');
+    const agent = mastra.getAgent('tradingAssistant');
+    if (!agent) {
+      throw new Error("Mastra agent not initialized");
+    }
+    const response = await agent.generate(`分析${ticker}在${timeframe}时间周期的市场状况，包括价格趋势、成交量分析和整体市场情绪`);
     return response.text;
-  } catch (error) {
+  } catch (error: any) {
     console.error('市场洞察错误:', error);
-    throw new Error(`市场洞察分析失败: ${error instanceof Error ? error.message : String(error)}`);
+    return `分析错误: ${error.message || '未知错误'}`;
   }
 }
 
 /**
- * 执行交易决策工作流
- * @param ticker 股票代码
- * @param portfolio 投资组合信息
- * @returns 工作流执行结果
+ * 交易决策工作流行动 - 运行完整的分析和决策流程
  */
 export async function executeTradingWorkflow(ticker: string, portfolio: any = {}) {
   try {
-    const workflow = mastra.getWorkflow('tradingDecisionWorkflow');
+    const agent = mastra.getAgent('tradingAssistant');
+    
+    if (!agent.getWorkflow) {
+      throw new Error('Agent does not support workflows');
+    }
+    
+    const workflow = agent.getWorkflow('tradingDecision');
+    
+    if (!workflow) {
+      throw new Error('Trading decision workflow not found');
+    }
+    
     const result = await workflow.execute({
+      ticker,
+      portfolio,
       context: {
-        ticker,
-        portfolio,
-        timestamp: new Date().toISOString(),
+        date: new Date().toISOString(),
+        accountSize: portfolio.accountSize || 10000,
       }
     });
     
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error('交易工作流错误:', error);
-    throw new Error(`交易决策工作流失败: ${error instanceof Error ? error.message : String(error)}`);
+    return { text: `执行错误: ${error.message || '未知错误'}` };
   }
 }
 
 /**
- * 获取价值投资分析
- * @param ticker 股票代码
- * @returns 价值投资分析结果
+ * 价值投资分析行动 - 使用价值投资代理
  */
 export async function getValueInvestingAnalysis(ticker: string) {
   try {
-    const agent = mastra.getAgent('valueInvestingAgent');
-    const response = await agent.generate(`分析 ${ticker} 的价值投资潜力，包括估值、财务状况和竞争优势。`);
-    return response.text;
-  } catch (error) {
+    const agent = mastra.getAgent('valueInvestor');
+    const response = await agent.generate(`从价值投资角度分析${ticker}的投资价值和潜力`);
+    return response;
+  } catch (error: any) {
     console.error('价值投资分析错误:', error);
-    throw new Error(`价值投资分析失败: ${error instanceof Error ? error.message : String(error)}`);
+    return { text: `分析错误: ${error.message || '未知错误'}` };
   }
 }
 
 /**
- * 获取成长投资分析
- * @param ticker 股票代码
- * @returns 成长投资分析结果
+ * 成长投资分析行动
  */
 export async function getGrowthInvestingAnalysis(ticker: string) {
   try {
-    const agent = mastra.getAgent('growthInvestingAgent');
-    const response = await agent.generate(`分析 ${ticker} 的成长投资潜力，包括收入增长、市场扩张和创新能力。`);
-    return response.text;
-  } catch (error) {
+    const agent = mastra.getAgent('tradingAssistant');
+    const response = await agent.generate(`从成长投资角度分析${ticker}的增长潜力和未来前景`);
+    return response;
+  } catch (error: any) {
     console.error('成长投资分析错误:', error);
-    throw new Error(`成长投资分析失败: ${error instanceof Error ? error.message : String(error)}`);
+    return { text: `分析错误: ${error.message || '未知错误'}` };
   }
 }
 
 /**
- * 获取技术分析
- * @param ticker 股票代码
- * @returns 技术分析结果
+ * 技术分析行动 - 使用技术分析代理
  */
 export async function getTechnicalAnalysis(ticker: string) {
   try {
-    const agent = mastra.getAgent('technicalAnalysisAgent');
-    const response = await agent.generate(`分析 ${ticker} 的技术指标和价格走势。`);
-    return response.text;
-  } catch (error) {
+    const agent = mastra.getAgent('technicalAnalyst');
+    const response = await agent.generate(`分析${ticker}的技术指标、价格走势和交易信号`);
+    return response;
+  } catch (error: any) {
     console.error('技术分析错误:', error);
-    throw new Error(`技术分析失败: ${error instanceof Error ? error.message : String(error)}`);
+    return { text: `分析错误: ${error.message || '未知错误'}` };
   }
 }
 
 /**
- * 获取量化投资分析
- * @param ticker 股票代码
- * @param timeframe 时间框架
- * @param riskTolerance 风险承受能力
- * @returns 量化投资分析结果
+ * 量化投资分析行动
  */
 export async function getQuantInvestingAnalysis(
   ticker: string, 
@@ -529,104 +702,87 @@ export async function getQuantInvestingAnalysis(
   riskTolerance: 'low' | 'medium' | 'high' = 'medium'
 ) {
   try {
-    const agent = mastra.getAgent('quantInvestingAgent');
-    const response = await agent.generate(
-      `通过量化方法分析 ${ticker}，时间框架: ${timeframe}，风险承受能力: ${riskTolerance}。`
-    );
-    return response.text;
-  } catch (error) {
+    const agent = mastra.getAgent('tradingAssistant');
+    const response = await agent.generate(`对${ticker}进行量化分析，时间框架为${timeframe}，风险承受能力为${riskTolerance}`);
+    return response;
+  } catch (error: any) {
     console.error('量化投资分析错误:', error);
-    throw new Error(`量化投资分析失败: ${error instanceof Error ? error.message : String(error)}`);
+    return { text: `分析错误: ${error.message || '未知错误'}` };
   }
 }
 
 /**
- * 获取情绪分析
- * @param ticker 股票代码
- * @returns 情绪分析结果
+ * 情绪分析行动
  */
 export async function getSentimentAnalysis(ticker: string) {
   try {
-    const agent = mastra.getAgent('sentimentAnalysisAgent');
-    const response = await agent.generate(`分析市场对 ${ticker} 的情绪和新闻报道。`);
-    return response.text;
-  } catch (error) {
+    const agent = mastra.getAgent('tradingAssistant');
+    const response = await agent.generate(`分析市场对${ticker}的情绪和舆论，包括新闻、社交媒体和分析师观点`);
+    return response;
+  } catch (error: any) {
     console.error('情绪分析错误:', error);
-    throw new Error(`情绪分析失败: ${error instanceof Error ? error.message : String(error)}`);
+    return { text: `分析错误: ${error.message || '未知错误'}` };
   }
 }
 
 /**
- * 获取投资组合优化
- * @param portfolio 当前投资组合
- * @param riskProfile 风险偏好
- * @returns 投资组合优化建议
+ * 投资组合优化行动
  */
 export async function getPortfolioOptimization(portfolio: any, riskProfile: 'conservative' | 'moderate' | 'aggressive' = 'moderate') {
   try {
-    const agent = mastra.getAgent('portfolioOptimizationAgent');
-    const response = await agent.generate(
-      `基于以下投资组合 ${JSON.stringify(portfolio)} 和 ${riskProfile} 风险偏好，提供投资组合优化建议。`
-    );
-    return response.text;
-  } catch (error) {
+    const agent = mastra.getAgent('riskManager');
+    const response = await agent.generate(`优化投资组合配置，风险偏好为${riskProfile}，当前资产分配为${JSON.stringify(portfolio)}`);
+    return response;
+  } catch (error: any) {
     console.error('投资组合优化错误:', error);
-    throw new Error(`投资组合优化失败: ${error instanceof Error ? error.message : String(error)}`);
+    return { text: `分析错误: ${error.message || '未知错误'}` };
   }
 }
 
 /**
- * 获取宏观经济分析
- * @param sector 行业部门
- * @returns 宏观经济分析
+ * 宏观经济分析行动
  */
 export async function getMacroAnalysis(sector?: string) {
   try {
-    const agent = mastra.getAgent('macroAnalysisAgent');
-    let prompt = '分析当前宏观经济环境及其对投资市场的影响';
+    const agent = mastra.getAgent('tradingAssistant');
+    let prompt = '分析当前宏观经济环境，包括通胀、利率、GDP增长和就业情况';
+    
     if (sector) {
       prompt += `，特别关注对${sector}行业的影响`;
     }
     
     const response = await agent.generate(prompt);
-    return response.text;
-  } catch (error) {
+    return response;
+  } catch (error: any) {
     console.error('宏观分析错误:', error);
-    throw new Error(`宏观经济分析失败: ${error instanceof Error ? error.message : String(error)}`);
+    return { text: `分析错误: ${error.message || '未知错误'}` };
   }
 }
 
 /**
- * 获取风险管理分析
- * @param ticker 股票代码或投资组合
- * @returns 风险管理分析
+ * 风险管理分析行动
  */
 export async function getRiskManagementAnalysis(ticker: string | any) {
   try {
-    const agent = mastra.getAgent('riskManagementAgent');
+    const agent = mastra.getAgent('riskManager');
     
-    let prompt;
+    let prompt = '';
     if (typeof ticker === 'string') {
-      prompt = `评估投资 ${ticker} 的风险，并提供风险管理建议。`;
+      prompt = `分析投资${ticker}的风险因素，并提供风险管理建议`;
     } else {
-      prompt = `评估以下投资组合的风险: ${JSON.stringify(ticker)}，并提供风险管理建议。`;
+      prompt = `分析当前投资组合的风险状况，并提供风险管理建议: ${JSON.stringify(ticker)}`;
     }
     
     const response = await agent.generate(prompt);
-    return response.text;
-  } catch (error) {
+    return response;
+  } catch (error: any) {
     console.error('风险管理分析错误:', error);
-    throw new Error(`风险管理分析失败: ${error instanceof Error ? error.message : String(error)}`);
+    return { text: `分析错误: ${error.message || '未知错误'}` };
   }
 }
 
 /**
- * 获取交易执行计划
- * @param action 交易行动
- * @param ticker 股票代码
- * @param quantity 数量
- * @param constraints 额外约束条件
- * @returns 交易执行计划
+ * 执行计划行动 - 生成交易执行计划
  */
 export async function getExecutionPlan(
   action: 'buy' | 'sell',
@@ -635,18 +791,36 @@ export async function getExecutionPlan(
   constraints?: string
 ) {
   try {
-    const agent = mastra.getAgent('executionAgent');
+    const agent = mastra.getAgent('tradingAssistant');
     
-    let prompt = `为${action === 'buy' ? '买入' : '卖出'} ${quantity} 股 ${ticker} 生成交易执行计划`;
-    
+    let prompt = `制定${action === 'buy' ? '买入' : '卖出'}${quantity}股${ticker}的执行计划`;
     if (constraints) {
-      prompt += `，需要考虑以下约束: ${constraints}`;
+      prompt += `，同时考虑以下约束条件：${constraints}`;
     }
     
     const response = await agent.generate(prompt);
-    return response.text;
-  } catch (error) {
+    return response;
+  } catch (error: any) {
     console.error('执行计划错误:', error);
-    throw new Error(`交易执行计划生成失败: ${error instanceof Error ? error.message : String(error)}`);
+    return { text: `分析错误: ${error.message || '未知错误'}` };
   }
-} 
+}
+
+/**
+ * 策略推荐行动 - 根据风险承受能力推荐策略
+ */
+export async function getStrategyRecommendation(ticker: string, riskTolerance: 'low' | 'moderate' | 'high'): Promise<string> {
+  try {
+    const agent = mastra.getAgent('recommendStrategy');
+    if (!agent) {
+      throw new Error("Mastra agent not initialized");
+    }
+    const response = await agent.generate(`推荐适合${ticker}的交易策略，风险承受能力为${riskTolerance}。包括入场点、退出策略、仓位大小和风险管理。`);
+    return response.text;
+  } catch (error: any) {
+    console.error('策略推荐错误:', error);
+    return `分析错误: ${error.message || '未知错误'}`;
+  }
+}
+
+// 导出所有行动函数 
