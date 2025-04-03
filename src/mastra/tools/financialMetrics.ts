@@ -9,7 +9,11 @@ export const financialMetricsTool = createTool({
     period: z.enum(['quarterly', 'annual', 'ttm']).describe('报告周期'),
     metrics: z.array(z.string()).optional().describe('需要的指标列表'),
   }),
-  execute: async ({ ticker, period, metrics }) => {
+  execute: async ({ ticker, period, metrics }: { 
+    ticker: string; 
+    period: 'quarterly' | 'annual' | 'ttm'; 
+    metrics?: string[] 
+  }) => {
     try {
       // 实际项目中会调用金融数据API或Rust后端
       // 模拟API调用延迟
@@ -39,8 +43,8 @@ export const financialMetricsTool = createTool({
           lastUpdated: new Date().toISOString(),
         }
       };
-    } catch (error) {
-      throw new Error(`Failed to fetch financial metrics: ${error.message}`);
+    } catch (error: unknown) {
+      throw new Error(`Failed to fetch financial metrics: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }); 

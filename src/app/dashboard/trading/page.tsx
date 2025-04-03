@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { FaShoppingCart, FaChartLine, FaHistory, FaRobot, FaSpinner } from 'react-icons/fa';
-import { getStockAnalysis, getMarketInsights } from '@/lib/mastra';
+import { FaShoppingCart, FaChartLine, FaHistory, FaRobot, FaSpinner, FaChartBar } from 'react-icons/fa';
+import { getStockAnalysis, getMarketInsights } from '@/actions/mastra';
+import { runValueBacktest, runTechnicalBacktest, runSentimentBacktest, runMixedBacktest, runRiskBacktest, type BacktestResult } from '@/actions/backtest';
+import { useSearchParams } from 'next/navigation';
 
 // 标签页组件
 function Tabs({ tabs, activeTab, setActiveTab }: { tabs: {id: string, label: string, icon: any}[], activeTab: string, setActiveTab: (id: string) => void }) {
@@ -31,7 +33,8 @@ const tradingSubTabs = [
   { id: 'trade', label: '买入/卖出', icon: FaShoppingCart },
   { id: 'ai', label: 'AI智能分析', icon: FaRobot },
   { id: 'orders', label: '订单历史', icon: FaHistory },
-  { id: 'market', label: '行情数据', icon: FaChartLine }
+  { id: 'market', label: '行情数据', icon: FaChartLine },
+  { id: 'backtest', label: '策略回测', icon: FaChartBar }
 ];
 
 // AI分析结果组件
@@ -130,8 +133,325 @@ function MarketDataItem({ symbol, name, price, change, volume }:
   );
 }
 
+// 回测组件
+function BacktestTab() {
+  const [ticker, setTicker] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('2022-01-01');
+  const [endDate, setEndDate] = useState<string>('2023-01-01');
+  const [initialCapital, setInitialCapital] = useState<string>('10000');
+  const [strategyType, setStrategyType] = useState<string>('technical');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const runBacktest = async () => {
+    if (!ticker) {
+      alert('请输入股票代码');
+      return;
+    }
+
+    setIsLoading(true);
+    setBacktestResult(null);
+    setError(null);
+
+    try {
+      let result: BacktestResult;
+      const capital = parseInt(initialCapital, 10);
+      
+      // 根据选择的策略类型调用不同的回测函数
+      switch (strategyType) {
+        case 'value':
+          result = await runValueBacktest(ticker, capital, startDate, endDate);
+          break;
+        case 'technical':
+          result = await runTechnicalBacktest(ticker, capital, startDate, endDate);
+          break;
+        case 'sentiment':
+          result = await runSentimentBacktest(ticker, capital, startDate, endDate);
+          break;
+        case 'risk':
+          result = await runRiskBacktest(ticker, capital, startDate, endDate);
+          break;
+        case 'mixed':
+          result = await runMixedBacktest(ticker, capital, startDate, endDate);
+          break;
+        default:
+          result = await runTechnicalBacktest(ticker, capital, startDate, endDate);
+      }
+      
+      setBacktestResult(result);
+    } catch (error: any) {
+      console.error('回测失败:', error);
+      setError(error.message || '回测过程中发生错误，请稍后重试');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-gray-700">
+        <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+          <h3 className="font-medium">回测设置</h3>
+        </div>
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">股票代码</label>
+            <input
+              type="text"
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="输入股票代码"
+              value={ticker}
+              onChange={(e) => setTicker(e.target.value.toUpperCase())}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-2">起始资金</label>
+            <input
+              type="number"
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="输入起始资金"
+              value={initialCapital}
+              onChange={(e) => setInitialCapital(e.target.value)}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-2">回测周期</label>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">开始日期</label>
+                <input
+                  type="date"
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">结束日期</label>
+                <input
+                  type="date"
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-2">策略类型</label>
+            <select
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={strategyType}
+              onChange={(e) => setStrategyType(e.target.value)}
+            >
+              <option value="value">价值投资策略</option>
+              <option value="technical">技术分析策略</option>
+              <option value="risk">风险管理策略</option>
+              <option value="sentiment">情绪分析策略</option>
+              <option value="mixed">混合策略</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {strategyType === 'value' && '基于基本面指标（PE、PB等）进行交易决策'}
+              {strategyType === 'technical' && '基于技术指标（移动平均线、RSI等）进行交易决策'}
+              {strategyType === 'risk' && '聚焦风险管理的策略，包括止损和风险平价'}
+              {strategyType === 'sentiment' && '基于市场情绪和新闻分析进行交易决策'}
+              {strategyType === 'mixed' && '综合多种指标的复合策略'}
+            </p>
+          </div>
+          
+          <button
+            className="w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center justify-center"
+            onClick={runBacktest}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <FaSpinner className="animate-spin mr-2" />
+                正在回测...
+              </>
+            ) : '运行回测'}
+          </button>
+        </div>
+      </div>
+      
+      <div className="lg:col-span-2 space-y-6">
+        {isLoading ? (
+          <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-gray-700 flex items-center justify-center p-20">
+            <FaSpinner className="animate-spin text-indigo-600 mr-2" size={24} />
+            <span>正在进行回测计算，请稍候...</span>
+          </div>
+        ) : error ? (
+          <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-gray-700 p-6">
+            <div className="text-red-500 mb-2 font-medium">回测失败</div>
+            <p className="text-gray-600 dark:text-gray-400">{error}</p>
+            <button 
+              className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              onClick={() => setError(null)}
+            >
+              返回
+            </button>
+          </div>
+        ) : backtestResult ? (
+          <>
+            <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-gray-700">
+              <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="font-medium">回测结果概览</h3>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">总收益率</div>
+                    <div className={`text-xl font-semibold ${
+                      backtestResult.metrics.totalReturn >= 0 ? 'text-green-500' : 'text-red-500'
+                    }`}>
+                      {(backtestResult.metrics.totalReturn * 100).toFixed(2)}%
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">年化收益率</div>
+                    <div className={`text-xl font-semibold ${
+                      backtestResult.metrics.annualizedReturn >= 0 ? 'text-green-500' : 'text-red-500'
+                    }`}>
+                      {(backtestResult.metrics.annualizedReturn * 100).toFixed(2)}%
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">最大回撤</div>
+                    <div className="text-xl font-semibold text-red-500">
+                      {(backtestResult.metrics.maxDrawdown * 100).toFixed(2)}%
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">夏普比率</div>
+                    <div className="text-xl font-semibold">
+                      {backtestResult.metrics.sharpeRatio.toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">胜率</div>
+                    <div className="text-xl font-semibold">
+                      {(backtestResult.metrics.winRate * 100).toFixed(2)}%
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">盈亏比</div>
+                    <div className="text-xl font-semibold">
+                      {backtestResult.metrics.profitFactor.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="h-64 bg-white dark:bg-gray-800 mt-6 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  {backtestResult.equityCurve && backtestResult.equityCurve.length > 0 ? (
+                    <div className="w-full h-full relative">
+                      <div className="absolute top-0 left-0 text-xs text-gray-500">
+                        {Math.max(...backtestResult.equityCurve.map(p => p.value)).toFixed(2)}
+                      </div>
+                      <div className="absolute bottom-0 left-0 text-xs text-gray-500">
+                        {Math.min(...backtestResult.equityCurve.map(p => p.value)).toFixed(2)}
+                      </div>
+                      <div className="absolute top-0 right-0 text-xs text-gray-500">
+                        {backtestResult.equityCurve[backtestResult.equityCurve.length - 1].date}
+                      </div>
+                      <div className="absolute bottom-0 right-0 text-xs text-gray-500">
+                        {backtestResult.equityCurve[0].date}
+                      </div>
+                      
+                      <div className="h-full w-full flex items-end">
+                        {backtestResult.equityCurve.map((point, index) => {
+                          const max = Math.max(...backtestResult.equityCurve.map(p => p.value));
+                          const min = Math.min(...backtestResult.equityCurve.map(p => p.value));
+                          const range = max - min;
+                          const heightPercent = range > 0 
+                            ? ((point.value - min) / range) * 100 
+                            : 50;
+                          
+                          return (
+                            <div 
+                              key={index}
+                              className="flex-1 hover:bg-gray-100 dark:hover:bg-gray-700"
+                              style={{ height: `${heightPercent}%` }}
+                              title={`日期: ${point.date}, 价值: ${point.value.toFixed(2)}`}
+                            >
+                              <div 
+                                className={`w-full h-full ${
+                                  point.value > backtestResult.equityCurve[0].value 
+                                    ? 'bg-green-500' 
+                                    : 'bg-red-500'
+                                } opacity-40`}
+                              ></div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-gray-500">无权益曲线数据</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-gray-700">
+              <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="font-medium">交易记录</h3>
+              </div>
+              <div className="p-4">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead>
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">价格</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">数量</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">盈亏</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {backtestResult.trades.map((trade: any, index: number) => (
+                        <tr key={index}>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">{trade.date}</td>
+                          <td className={`px-4 py-3 whitespace-nowrap text-sm font-medium ${
+                            trade.type === 'buy' ? 'text-green-500' : 'text-red-500'
+                          }`}>
+                            {trade.type === 'buy' ? '买入' : '卖出'}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">${trade.price.toFixed(2)}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">{trade.shares}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-sm">
+                            {trade.profit 
+                              ? <span className="text-green-500">${trade.profit.toFixed(2)}</span> 
+                              : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-gray-700 flex items-center justify-center p-20">
+            <p className="text-gray-500">请在左侧设置回测参数并运行回测</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function TradingPage() {
-  const [activeSubTab, setActiveSubTab] = useState<string>('trade');
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const [activeSubTab, setActiveSubTab] = useState<string>(tabFromUrl || 'trade');
   const [orderType, setOrderType] = useState<string>('buy');
   const [orderPrice, setOrderPrice] = useState<string>('market');
   const [stockSymbol, setStockSymbol] = useState<string>('');
@@ -700,6 +1020,9 @@ export default function TradingPage() {
           </div>
         </div>
       )}
+      
+      {/* 回测内容 */}
+      {activeSubTab === 'backtest' && <BacktestTab />}
     </div>
   );
 } 

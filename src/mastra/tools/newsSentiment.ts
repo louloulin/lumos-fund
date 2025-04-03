@@ -10,7 +10,11 @@ export const newsSentimentTool = createTool({
     days: z.number().optional().default(7).describe('过去多少天的数据'),
     sources: z.enum(['news', 'social', 'all']).optional().default('all').describe('数据来源'),
   }),
-  execute: async ({ ticker, days, sources }) => {
+  execute: async ({ ticker, days, sources }: {
+    ticker: string;
+    days?: number;
+    sources?: 'news' | 'social' | 'all';
+  }) => {
     // 模拟API调用，实际项目中应替换为真实新闻API
     // 例如使用NewsAPI, GDELT或Twitter/社交媒体API
     console.log(`获取${ticker}的${days}天${sources}情绪数据`);
@@ -29,21 +33,21 @@ export const newsSentimentTool = createTool({
         {
           title: `${ticker}公司发布季度财报，超出市场预期`,
           source: 'Financial Times',
-          date: new Date(Date.now() - Math.floor(Math.random() * days * 24 * 60 * 60 * 1000)).toISOString(),
+          date: new Date(Date.now() - Math.floor(Math.random() * (days || 7) * 24 * 60 * 60 * 1000)).toISOString(),
           sentiment: 'positive',
           url: `https://example.com/news/${ticker.toLowerCase()}`
         },
         {
           title: `分析师对${ticker}未来前景持谨慎态度`,
           source: 'Bloomberg',
-          date: new Date(Date.now() - Math.floor(Math.random() * days * 24 * 60 * 60 * 1000)).toISOString(),
+          date: new Date(Date.now() - Math.floor(Math.random() * (days || 7) * 24 * 60 * 60 * 1000)).toISOString(),
           sentiment: 'neutral',
           url: `https://example.com/news/${ticker.toLowerCase()}/analysis`
         },
         {
           title: `${ticker}面临新的市场挑战和竞争压力`,
           source: 'Reuters',
-          date: new Date(Date.now() - Math.floor(Math.random() * days * 24 * 60 * 60 * 1000)).toISOString(),
+          date: new Date(Date.now() - Math.floor(Math.random() * (days || 7) * 24 * 60 * 60 * 1000)).toISOString(),
           sentiment: Math.random() > 0.5 ? 'negative' : 'neutral',
           url: `https://example.com/news/${ticker.toLowerCase()}/challenges`
         }

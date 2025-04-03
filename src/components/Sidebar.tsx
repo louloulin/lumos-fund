@@ -41,7 +41,7 @@ const navItems = [
   },
   {
     label: '回测系统',
-    href: '/backtest',
+    href: '/dashboard/trading?tab=backtest',
     icon: BarChart,
   },
   {

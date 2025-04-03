@@ -59,7 +59,7 @@ export default function Home() {
                         <Link href="/dashboard" className="px-6 py-3 bg-white text-indigo-600 rounded-lg font-semibold flex items-center hover:bg-gray-100 transition">
                             开始使用 <FaArrowRight className="ml-2" />
                         </Link>
-                        <Link href="/backtest" className="px-6 py-3 bg-indigo-700 text-white rounded-lg font-semibold flex items-center hover:bg-indigo-800 transition border border-indigo-400">
+                        <Link href="/dashboard/trading?tab=backtest" className="px-6 py-3 bg-indigo-700 text-white rounded-lg font-semibold flex items-center hover:bg-indigo-800 transition border border-indigo-400">
                             回测策略
                         </Link>
                     </div>
@@ -166,7 +166,7 @@ export default function Home() {
                                 </li>
                             ))}
                         </ul>
-                        <Link href="/backtest" className="inline-block mt-8 px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
+                        <Link href="/dashboard/trading?tab=backtest" className="inline-block mt-8 px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition">
                             开始回测
                         </Link>
                     </div>

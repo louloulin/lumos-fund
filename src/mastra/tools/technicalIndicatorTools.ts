@@ -13,7 +13,12 @@ export const technicalIndicatorsTool = createTool({
     period: z.number().optional().describe('计算周期（默认为14天）'),
     days: z.number().optional().describe('获取多少天的历史数据（默认为60天）')
   }),
-  execute: async ({ ticker, indicators, period = 14, days = 60 }) => {
+  execute: async ({ ticker, indicators, period = 14, days = 60 }: { 
+    ticker: string; 
+    indicators: string[]; 
+    period?: number; 
+    days?: number 
+  }) => {
     console.log(`计算股票 ${ticker} 的技术指标`, { indicators, period, days });
 
     try {

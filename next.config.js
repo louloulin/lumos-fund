@@ -1,4 +1,5 @@
 const webpack = require('webpack');
+const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -21,6 +22,13 @@ const nextConfig = {
   
   // Webpack配置
   webpack: (config, { isServer }) => {
+    // 处理所有md文件的通用规则
+    config.module.rules.push({
+      test: /\.md$/,
+      use: 'ignore-loader',
+      type: 'javascript/auto',
+    });
+    
     // 客户端配置
     if (!isServer) {
       // 在客户端构建中，将这些Node.js模块设置为false
@@ -63,14 +71,20 @@ const nextConfig = {
         '@mastra/core/tools': require.resolve('./src/mastra-client.ts'),
         '@mastra/core/workflow': require.resolve('./src/mastra-client.ts'),
         '@/mastra': require.resolve('./src/mastra-client.ts'),
+        // 替换libsql相关模块
+        '@libsql/client/README.md': require.resolve('./src/empty-module.js'),
+        '@libsql/client': require.resolve('./src/empty-module.js'),
+        'libsql': require.resolve('./src/empty-module.js'),
       };
-      
-      // 处理README.md文件（用于libsql的问题）
-      config.module.rules.push({
-        test: /\.md$/,
-        use: 'null-loader'
-      });
     }
+    
+    // 禁止webpack解析某些文件
+    config.module.noParse = [
+      /node_modules[\/\\]@libsql[\/\\]client[\/\\]README\.md/,
+      /node_modules[\/\\]@libsql[\/\\].*\.md$/,
+      /node_modules[\/\\]libsql[\/\\].*\.md$/,
+      ...Array.isArray(config.module.noParse) ? config.module.noParse : []
+    ];
     
     return config;
   },

@@ -6,7 +6,7 @@ const navigation = [
   { name: '仪表盘', href: '/' },
   { name: 'AI 代理', href: '/agents' },
   { name: '分析', href: '/analysis' },
-  { name: '回测', href: '/backtest' },
+  { name: '回测', href: '/dashboard/trading?tab=backtest' },
   { name: '投资组合', href: '/portfolio' },
 ];
 

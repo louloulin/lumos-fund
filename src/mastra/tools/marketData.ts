@@ -62,7 +62,14 @@ export const marketDataTool = createTool({
     dataType: z.enum(['price', 'fundamental', 'technical']).describe('数据类型'),
     period: z.string().optional().describe('数据周期，如 1d, 5d, 1mo 等'),
   }),
-  execute: async ({ context: { symbol, dataType, period = '1mo' } }) => {
+  execute: async ({ context }: { 
+    context: { 
+      symbol: string; 
+      dataType: 'price' | 'fundamental' | 'technical'; 
+      period?: string; 
+    } 
+  }) => {
+    const { symbol, dataType, period = '1mo' } = context;
     console.log(`Fetching ${dataType} data for ${symbol} over ${period}`);
     
     try {

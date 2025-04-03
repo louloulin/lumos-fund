@@ -1,9 +1,10 @@
 // 此文件仅可在服务器端使用
 import { Mastra } from '@mastra/core';
+import { Agent } from '@mastra/core/agent';
 import { createLogger } from '@/lib/logger.server';
+import { openai } from '@ai-sdk/openai';
 
 // 导入Agent、Tool、Workflow接口从正确的子模块
-import type { Agent } from '@mastra/core/agent';
 import type { Tool } from '@mastra/core/tools';
 import type { Workflow } from '@mastra/core/workflow';
 
@@ -13,31 +14,23 @@ import { quantInvestingAgent } from './agents/quantInvestingAgent';
 import { macroAnalysisAgent } from './agents/macroAnalysisAgent';
 import { sentimentAnalysisAgent } from './agents/sentimentAnalysisAgent';
 import { stockAgent, valueInvestingAgent, growthInvestingAgent, trendInvestingAgent } from './agents/stockAgent';
+import { technicalAnalysisAgent } from './agents/technicalAnalysisAgent';
+
+// 导入工具 - 修复导入冲突
+import { financialMetricsTool } from './tools/financialMetrics';
+import { technicalIndicatorsTool } from './tools/technicalIndicatorTools';
+import { newsSentimentTool } from './tools/newsSentiment';
+import { factorModelTool } from './tools/factorModelTools';
+import { statisticalArbitrageTool } from './tools/statisticalArbitrageTools';
 
 const logger = createLogger('mastra');
 
-// 初始化mastra
-logger.info('初始化mastra服务');
-export const mastra = new Mastra({
-  agents: {
-    stockAgent,
-    valueInvestingAgent,
-    growthInvestingAgent,
-    trendInvestingAgent,
-    quantInvestingAgent,
-    macroAnalysisAgent,
-    riskManagementAgent,
-    sentimentAnalysisAgent
-  }
-});
+// 定义工具和代理
 
 /**
- * 创建工具和代理
- * 注意: 此处简化实现，在实际项目中，这些应该从子模块中导入
+ * 股票价格工具 - 用于获取股票价格数据
  */
-
-// 创建股价工具
-export const stockPriceTool = {
+const stockPriceTool: Tool = {
   id: 'stockPriceTool',
   description: '获取股票价格数据',
   execute: async (options: any) => {
@@ -70,20 +63,85 @@ export const stockPriceTool = {
   }
 };
 
-// 导出代理
-export { 
-  stockAgent,
-  valueInvestingAgent, 
-  growthInvestingAgent, 
-  trendInvestingAgent, 
-  quantInvestingAgent, 
-  macroAnalysisAgent, 
-  riskManagementAgent,
-  sentimentAnalysisAgent
-};
+/**
+ * 投资组合优化代理 - 负责优化投资组合配置
+ */
+const portfolioOptimizationAgent: Agent = new Agent({
+  id: 'portfolioOptimizationAgent',
+  description: '投资组合优化代理，根据风险收益优化投资组合',
+  apiKey: process.env.OPENAI_API_KEY,
+  provider: 'openai',
+  model: 'gpt-4-turbo-preview',
+  systemPrompt: `
+    你是一位专业的投资组合优化专家，负责根据风险收益分析优化投资组合。
+    
+    提供投资组合建议时，你应该：
+    1. 考虑资产相关性和多元化
+    2. 根据风险偏好调整资产配置
+    3. 考虑行业、规模、地区的分散
+    4. 给出明确的资产配置百分比
+    5. 解释你的优化逻辑和预期结果
+    
+    使用专业的投资组合理论和量化方法支持你的建议。
+  `
+});
 
-// 创建交易决策工作流
-export const tradingDecisionWorkflow = {
+/**
+ * 执行代理 - 负责生成交易执行计划
+ */
+const executionAgent: Agent = new Agent({
+  id: 'executionAgent',
+  description: '执行代理，负责生成具体的交易执行计划',
+  apiKey: process.env.OPENAI_API_KEY,
+  provider: 'openai',
+  model: 'gpt-4-turbo-preview',
+  systemPrompt: `
+    你是一位专业的交易执行专家，负责根据投资决策生成具体的交易执行计划。
+    
+    提供执行计划时，你应该：
+    1. 考虑交易成本和滑点
+    2. 分析最佳交易时机
+    3. 建议适当的订单类型（市价单、限价单等）
+    4. 考虑分批交易减少市场影响
+    5. 提供风控措施如止损设置
+    
+    注重执行效率和风险控制。
+  `
+});
+
+/**
+ * 交易代理 - 综合分析并提供交易建议
+ */
+const tradingAgent: Agent = new Agent({
+  id: 'tradingAgent',
+  description: '综合交易代理，能够分析股票并给出投资建议',
+  apiKey: process.env.OPENAI_API_KEY,
+  provider: 'openai',
+  model: 'gpt-4-turbo-preview',
+  systemPrompt: `
+    你是一个专业的交易顾问，擅长从多角度分析股票，并给出清晰的投资建议。
+    
+    提供分析时，你应该：
+    1. 考虑基本面、技术面和市场情绪
+    2. 给出明确的投资信号（买入/卖出/持有）
+    3. 说明你的置信度和理由
+    4. 提供风险提示
+    5. 给出合理的价格区间和时间框架
+    
+    保持客观、专业，避免过度乐观或悲观。
+  `,
+  tools: {
+    stockPriceTool,
+    financialMetricsTool,
+    technicalIndicatorsTool,
+    newsSentimentTool
+  }
+});
+
+/**
+ * 交易决策工作流
+ */
+const tradingDecisionWorkflow: Workflow = {
   execute: async (options: any) => {
     const { context } = options;
     const { ticker, portfolio } = context;
@@ -163,6 +221,36 @@ export const tradingDecisionWorkflow = {
   }
 };
 
+// 初始化mastra - 使用正确的声明顺序
+logger.info('初始化mastra服务');
+export const mastra = new Mastra({
+  agents: {
+    stockAgent,
+    valueInvestingAgent,
+    growthInvestingAgent,
+    trendInvestingAgent,
+    quantInvestingAgent,
+    macroAnalysisAgent,
+    riskManagementAgent,
+    sentimentAnalysisAgent,
+    technicalAnalysisAgent,
+    portfolioOptimizationAgent,
+    executionAgent,
+    tradingAgent
+  },
+  workflows: {
+    tradingDecisionWorkflow
+  },
+  tools: {
+    stockPriceTool,
+    financialMetricsTool,
+    technicalIndicatorsTool,
+    newsSentimentTool,
+    factorModelTool,
+    statisticalArbitrageTool
+  }
+});
+
 // 设置mastra的getAgent和getWorkflow方法
 mastra.getAgent = (name: string) => {
   switch (name) {
@@ -180,6 +268,14 @@ mastra.getAgent = (name: string) => {
       return riskManagementAgent;
     case 'sentimentAnalysisAgent':
       return sentimentAnalysisAgent;
+    case 'technicalAnalysisAgent':
+      return technicalAnalysisAgent;
+    case 'portfolioOptimizationAgent':
+      return portfolioOptimizationAgent;
+    case 'executionAgent':
+      return executionAgent;
+    case 'tradingAgent':
+      return tradingAgent;
     default:
       throw new Error(`Agent ${name} not found`);
   }
@@ -194,5 +290,31 @@ mastra.getWorkflow = (name: string) => {
   }
 };
 
-// 导出工具
-export { marketDataTool } from './tools/marketData'; 
+// 导出所有代理供其他模块使用
+export {
+  stockAgent,
+  valueInvestingAgent, 
+  growthInvestingAgent, 
+  trendInvestingAgent, 
+  quantInvestingAgent, 
+  macroAnalysisAgent, 
+  riskManagementAgent,
+  sentimentAnalysisAgent,
+  technicalAnalysisAgent,
+  portfolioOptimizationAgent,
+  executionAgent,
+  tradingAgent
+};
+
+// 导出工作流
+export { tradingDecisionWorkflow };
+
+// 导出工具（统一在一个export语句中导出所有工具）
+export {
+  financialMetricsTool,
+  technicalIndicatorsTool,
+  newsSentimentTool,
+  factorModelTool,
+  statisticalArbitrageTool,
+  stockPriceTool
+}; 

@@ -11,7 +11,14 @@ export const stockPriceTool = createTool({
     endDate: z.string().optional().describe('结束日期 (YYYY-MM-DD 格式)'),
     interval: z.enum(['daily', 'weekly', 'monthly']).optional().describe('数据间隔'),
   }),
-  execute: async ({ context }) => {
+  execute: async ({ context }: { 
+    context: { 
+      ticker: string; 
+      startDate?: string; 
+      endDate?: string; 
+      interval?: 'daily' | 'weekly' | 'monthly'; 
+    } 
+  }) => {
     const { ticker, startDate, endDate, interval = 'daily' } = context;
     
     try {
@@ -52,9 +59,9 @@ export const stockPriceTool = createTool({
         },
         quote: stockQuote
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(`获取股票价格数据失败:`, error);
-      throw new Error(`获取股票价格数据失败: ${error.message}`);
+      throw new Error(`获取股票价格数据失败: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }); 

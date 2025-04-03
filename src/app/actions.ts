@@ -197,4 +197,107 @@ export async function getStockPriceData(ticker: string) {
       error: error instanceof Error ? error.message : '获取数据失败'
     };
   }
+}
+
+/**
+ * 获取股票综合分析
+ */
+export async function getStockAnalysis(ticker: string) {
+  logger.info(`执行股票综合分析: ${ticker}`);
+  
+  try {
+    const agent = mastra.getAgent('tradingAgent');
+    
+    const result = await agent.generate(`分析股票 ${ticker} 的投资价值，给出投资建议和理由。`);
+    
+    // 重新验证相关路径确保数据刷新
+    revalidatePath('/analysis');
+    
+    return { success: true, data: result.text || result };
+  } catch (error) {
+    logger.error('股票综合分析失败:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : '分析失败'
+    };
+  }
+}
+
+/**
+ * 获取市场洞察
+ */
+export async function getMarketInsights() {
+  logger.info('执行市场洞察分析');
+  
+  try {
+    const agent = mastra.getAgent('tradingAgent');
+    
+    const result = await agent.generate('给出当前市场的主要趋势和洞察，包括主要指数、行业表现和重要事件影响。');
+    
+    // 重新验证相关路径确保数据刷新
+    revalidatePath('/dashboard');
+    
+    return { success: true, data: result.text || result };
+  } catch (error) {
+    logger.error('市场洞察分析失败:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : '分析失败'
+    };
+  }
+}
+
+/**
+ * 风险分析
+ */
+export async function getRiskAnalysis(ticker: string) {
+  logger.info(`执行简化风险分析: ${ticker}`);
+  
+  try {
+    const agent = mastra.getAgent('riskManagementAgent');
+    
+    const result = await agent.generate(`评估投资 ${ticker} 的风险因素，包括波动性、下行风险和潜在的风险缓解策略。`);
+    
+    // 重新验证相关路径确保数据刷新
+    revalidatePath('/analysis');
+    
+    return { success: true, data: result.text || result };
+  } catch (error) {
+    logger.error('风险分析失败:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : '分析失败'
+    };
+  }
+}
+
+/**
+ * 执行交易决策工作流
+ */
+export async function executeTradingWorkflow(ticker: string, data: any = {}) {
+  logger.info(`执行完整交易工作流: ${ticker}`);
+  
+  try {
+    const workflow = mastra.getWorkflow('tradingDecisionWorkflow');
+    
+    const result = await workflow.execute({
+      context: {
+        ticker,
+        data,
+        timestamp: new Date().toISOString(),
+      }
+    });
+    
+    // 重新验证相关路径确保数据刷新
+    revalidatePath('/dashboard');
+    revalidatePath('/analysis');
+    
+    return { success: true, data: result };
+  } catch (error) {
+    logger.error('交易工作流执行失败:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : '执行失败'
+    };
+  }
 } 
