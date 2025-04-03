@@ -18,6 +18,7 @@ import { Slider } from '@/components/ui/slider';
 import { toast } from '@/components/ui/use-toast';
 import { ArrowLeft, Save, RotateCcw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 // 设置类型定义
 type GeneralSettings = {
@@ -158,7 +159,8 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-bold">设置</h1>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <ThemeToggle />
           <Button 
             variant="outline" 
             onClick={handleResetSettings}

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
 
 // 简单实现主题切换功能
 export function ThemeToggle() {
@@ -20,12 +21,17 @@ export function ThemeToggle() {
   }
 
   return (
-    <button
-      className="rounded-md p-2 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+    <Button
+      variant="ghost"
+      size="icon"
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      title={theme === "dark" ? "切换到浅色模式" : "切换到深色模式"}
+      aria-label={theme === "dark" ? "切换到浅色模式" : "切换到深色模式"}
     >
-      {theme === "dark" ? <SunIcon size={18} /> : <MoonIcon size={18} />}
-    </button>
+      {theme === "dark" ? (
+        <SunIcon className="h-5 w-5" />
+      ) : (
+        <MoonIcon className="h-5 w-5" />
+      )}
+    </Button>
   );
 } 
