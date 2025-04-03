@@ -460,6 +460,13 @@ export default function TradingPage() {
   const [loadingAnalysis, setLoadingAnalysis] = useState<boolean>(false);
   const [loadingInsights, setLoadingInsights] = useState<boolean>(false);
   
+  // 处理从URL接收tab参数的变化
+  useEffect(() => {
+    if (tabFromUrl) {
+      setActiveSubTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
+  
   // 自动加载市场洞察
   useEffect(() => {
     if (activeSubTab === 'ai' && !marketInsights && !loadingInsights) {

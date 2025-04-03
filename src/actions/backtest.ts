@@ -42,7 +42,7 @@ async function runBacktest(
   initialCapital: number,
   startDate: string,
   endDate: string,
-  strategy: (data: StockData[], additionalData?: any) => { signal: 'buy' | 'sell' | 'hold'; price?: number }
+  strategy: (data: StockData[]) => { signal: 'buy' | 'sell' | 'hold' }
 ): Promise<BacktestResult> {
   try {
     // 获取历史价格数据
@@ -73,24 +73,24 @@ async function runBacktest(
       const currentDay = currentData[i];
       
       // 运行策略获取信号
-      const { signal, price = currentDay.close } = strategy(currentData);
+      const { signal } = strategy(currentData);
       
       // 执行交易
       if (signal === 'buy' && cash > 0) {
-        const sharesToBuy = Math.floor(cash / price);
+        const sharesToBuy = Math.floor(cash / currentDay.close);
         if (sharesToBuy > 0) {
           trades.push({
             date: currentDay.date,
             type: 'buy',
-            price,
+            price: currentDay.close,
             shares: sharesToBuy
           });
           
           shares += sharesToBuy;
-          cash -= sharesToBuy * price;
+          cash -= sharesToBuy * currentDay.close;
         }
       } else if (signal === 'sell' && shares > 0) {
-        const saleProceeds = shares * price;
+        const saleProceeds = shares * currentDay.close;
         const costBasis = trades
           .filter(t => t.type === 'buy')
           .reduce((sum, t) => sum + (t.price * t.shares), 0);
@@ -100,7 +100,7 @@ async function runBacktest(
         trades.push({
           date: currentDay.date,
           type: 'sell',
-          price,
+          price: currentDay.close,
           shares,
           profit
         });
@@ -119,7 +119,7 @@ async function runBacktest(
       }
       
       // 计算当前权益
-      equity = cash + (shares * price);
+      equity = cash + (shares * currentDay.close);
       
       // 更新最大回撤
       if (equity > maxEquity) {
@@ -224,47 +224,52 @@ export async function runTechnicalBacktest(
   endDate: string
 ): Promise<BacktestResult> {
   // 技术分析策略
-  const technicalStrategy = (data: StockData[]) => {
+  const technicalStrategy = (data: StockData[]): { signal: 'buy' | 'sell' | 'hold' } => {
+    // 确保有足够的数据来计算指标
+    if (data.length < 20) {
+      return { signal: 'hold' };
+    }
+    
     // 计算技术指标
-    const technicalData = calculateTechnicalIndicators(data);
+    const technicalIndicators = calculateTechnicalIndicators(data);
     const current = data[data.length - 1];
+    const previousDay = data[data.length - 2];
     
-    // MA交叉策略
-    const ma5 = technicalData.ma5 || [];
-    const ma20 = technicalData.ma20 || [];
+    // 使用正确的属性名
+    const ma20 = technicalIndicators.ma20 || [];
+    const ma60 = technicalIndicators.ma60 || [];
+    const rsi14 = technicalIndicators.rsi14 || [];
     
-    const currentMA5 = ma5[ma5.length - 1] ?? 0;
-    const previousMA5 = ma5[ma5.length - 2] ?? 0;
-    const currentMA20 = ma20[ma20.length - 1] ?? 0;
-    const previousMA20 = ma20[ma20.length - 2] ?? 0;
+    const currentMA20 = ma20[ma20.length - 1];
+    const previousMA20 = ma20[ma20.length - 2];
+    const currentMA60 = ma60[ma60.length - 1];
+    const previousMA60 = ma60[ma60.length - 2];
+    const currentRSI = rsi14[rsi14.length - 1];
     
-    // MA5上穿MA20为买入信号
-    if (previousMA5 < previousMA20 && currentMA5 > currentMA20) {
-      return { signal: 'buy' as const };
+    // 简单的均线交叉策略
+    if (currentMA20 && currentMA60 && previousMA20 && previousMA60) {
+      if (previousMA20 < previousMA60 && currentMA20 > currentMA60) {
+        // 短期均线上穿长期均线，买入信号
+        return { signal: 'buy' };
+      } else if (previousMA20 > previousMA60 && currentMA20 < currentMA60) {
+        // 短期均线下穿长期均线，卖出信号
+        return { signal: 'sell' };
+      }
     }
     
-    // MA5下穿MA20为卖出信号
-    if (previousMA5 > previousMA20 && currentMA5 < currentMA20) {
-      return { signal: 'sell' as const };
-    }
-    
-    // RSI超买超卖策略
-    const rsi = technicalData.rsi14 || [];
-    const currentRSI = rsi[rsi.length - 1];
-    
+    // RSI策略
     if (currentRSI !== null) {
-      // RSI低于30为超卖，买入信号
-      if (currentRSI < 30) {
-        return { signal: 'buy' as const };
-      }
-      
-      // RSI高于70为超买，卖出信号
       if (currentRSI > 70) {
-        return { signal: 'sell' as const };
+        // RSI超买，卖出信号
+        return { signal: 'sell' };
+      } else if (currentRSI < 30) {
+        // RSI超卖，买入信号
+        return { signal: 'buy' };
       }
     }
     
-    return { signal: 'hold' as const };
+    // 无明确信号
+    return { signal: 'hold' };
   };
   
   return runBacktest(ticker, initialCapital, startDate, endDate, technicalStrategy);
@@ -277,33 +282,33 @@ export async function runSentimentBacktest(
   startDate: string,
   endDate: string
 ): Promise<BacktestResult> {
-  // 获取新闻情绪数据
+  // 获取情绪数据
   const newsData = generateNewsData(ticker, startDate, endDate);
   
   // 情绪分析策略
-  const sentimentStrategy = (data: StockData[]) => {
-    const current = data[data.length - 1];
-    const currentDate = current.date;
+  const sentimentStrategy = (data: StockData[]): { signal: 'buy' | 'sell' | 'hold' } => {
+    const currentDate = data[data.length - 1].date;
     
-    // 查找当天的新闻情绪
-    const todayNews = newsData.filter(news => news.date === currentDate);
+    // 从情绪数据中找到最近的新闻
+    const recentNews = newsData
+      .filter(news => new Date(news.date) <= new Date(currentDate))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
     
-    if (todayNews.length > 0) {
-      // 计算平均情绪分数
-      const avgSentiment = todayNews.reduce((sum, news) => sum + news.sentiment, 0) / todayNews.length;
-      
-      // 情绪显著正面时买入
-      if (avgSentiment > 0.5) {
-        return { signal: 'buy' as const };
-      }
-      
-      // 情绪显著负面时卖出
-      if (avgSentiment < -0.5) {
-        return { signal: 'sell' as const };
-      }
+    // 计算情绪得分
+    const sentimentScore = recentNews.reduce((score, news) => score + news.sentiment, 0) / (recentNews.length || 1);
+    
+    // 基于情绪得分的交易策略
+    if (sentimentScore > 0.6) {
+      // 积极情绪，买入信号
+      return { signal: 'buy' };
+    } else if (sentimentScore < -0.3) {
+      // 消极情绪，卖出信号
+      return { signal: 'sell' };
     }
     
-    return { signal: 'hold' as const };
+    // 无明确信号
+    return { signal: 'hold' };
   };
   
   return runBacktest(ticker, initialCapital, startDate, endDate, sentimentStrategy);
@@ -317,38 +322,38 @@ export async function runRiskBacktest(
   endDate: string
 ): Promise<BacktestResult> {
   // 风险管理策略
-  const riskStrategy = (data: StockData[]) => {
+  const riskStrategy = (data: StockData[]): { signal: 'buy' | 'sell' | 'hold' } => {
+    // 确保有足够的数据
+    if (data.length < 20) {
+      return { signal: 'hold' };
+    }
+    
     const current = data[data.length - 1];
+    const priceHistory = data.slice(-20).map(d => d.close);
     
-    // 计算波动率（20日标准差）
-    const last20Days = data.slice(-20);
-    const returns = last20Days.map((day, i) => {
-      if (i === 0) return 0;
-      return day.close / last20Days[i - 1].close - 1;
-    }).slice(1);
+    // 计算波动率（标准差）
+    const mean = priceHistory.reduce((sum, price) => sum + price, 0) / priceHistory.length;
+    const variance = priceHistory.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / priceHistory.length;
+    const volatility = Math.sqrt(variance) / mean; // 相对波动率
     
-    const avgReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length;
-    const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / returns.length;
-    const volatility = Math.sqrt(variance);
+    // 计算过去10天的最高价
+    const highestPrice = Math.max(...data.slice(-10).map(d => d.high));
+    // 计算过去10天的最低价
+    const lowestPrice = Math.min(...data.slice(-10).map(d => d.low));
     
-    // 计算止损水平 (前20天最低价的90%)
-    const stopLoss = Math.min(...last20Days.map(day => day.low)) * 0.9;
-    
-    // 如果当前价格低于止损价，卖出
-    if (current.close < stopLoss) {
-      return { signal: 'sell' };
-    }
-    
-    // 波动率低时买入
-    if (volatility < 0.015 && current.close > last20Days[0].close) {
+    // 自适应风险管理策略
+    if (volatility < 0.05 && current.close > mean * 1.05) {
+      // 低波动率环境，且价格上升，买入
       return { signal: 'buy' };
-    }
-    
-    // 波动率高时卖出
-    if (volatility > 0.03) {
+    } else if (volatility > 0.1 || current.close < lowestPrice * 1.02) {
+      // 高波动率环境，或价格接近近期低点，卖出
+      return { signal: 'sell' };
+    } else if (current.close > highestPrice * 0.95 && volatility > 0.08) {
+      // 价格接近近期高点且波动率增加，卖出获利
       return { signal: 'sell' };
     }
     
+    // 无明确信号
     return { signal: 'hold' };
   };
   
@@ -362,82 +367,65 @@ export async function runMixedBacktest(
   startDate: string,
   endDate: string
 ): Promise<BacktestResult> {
-  // 获取附加数据
+  // 获取财务指标和情绪数据
   const financials = generateFinancialMetrics(ticker);
   const newsData = generateNewsData(ticker, startDate, endDate);
   
   // 混合策略
-  const mixedStrategy = (data: StockData[]) => {
-    // 计算技术指标
-    const technicalData = calculateTechnicalIndicators(data);
-    const current = data[data.length - 1];
-    const currentDate = current.date;
+  const mixedStrategy = (data: StockData[]): { signal: 'buy' | 'sell' | 'hold' } => {
+    // 确保有足够的数据
+    if (data.length < 20) {
+      return { signal: 'hold' };
+    }
     
-    // 得分系统
+    const current = data[data.length - 1];
+    const previousDay = data[data.length - 2];
+    
+    // 计算技术指标
+    const technicalIndicators = calculateTechnicalIndicators(data);
+    const ma20 = technicalIndicators.ma20 || [];
+    const ma60 = technicalIndicators.ma60 || [];
+    const rsi14 = technicalIndicators.rsi14 || [];
+    
+    const currentMA20 = ma20[ma20.length - 1];
+    const currentMA60 = ma60[ma60.length - 1];
+    const currentRSI = rsi14[rsi14.length - 1];
+    
+    // 获取情绪指标
+    const currentDate = current.date;
+    const recentNews = newsData
+      .filter(news => new Date(news.date) <= new Date(currentDate))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+    const sentimentScore = recentNews.reduce((score, news) => score + news.sentiment, 0) / (recentNews.length || 1);
+    
+    // 综合多因素评分系统
     let score = 0;
     
-    // 1. 技术分析得分
-    const ma5 = technicalData.ma5 || [];
-    const ma20 = technicalData.ma20 || [];
-    const rsi = technicalData.rsi14 || [];
-    
-    const currentMA5 = ma5[ma5.length - 1];
-    const previousMA5 = ma5[ma5.length - 2];
-    const currentMA20 = ma20[ma20.length - 1];
-    const previousMA20 = ma20[ma20.length - 2];
-    
-    // MA5上穿MA20加分
-    if (previousMA5 < previousMA20 && currentMA5 > currentMA20) {
-      score += 2;
-    }
-    
-    // MA5下穿MA20减分
-    if (previousMA5 > previousMA20 && currentMA5 < currentMA20) {
-      score -= 2;
-    }
-    
-    // RSI考量
-    const currentRSI = rsi[rsi.length - 1];
+    // 技术因素 (权重: 40%)
+    if (currentMA20 && currentMA60 && currentMA20 > currentMA60) score += 2; // 短期均线在长期均线上方
+    if (currentMA20 && current.close > currentMA20) score += 1; // 价格在短期均线上方
     if (currentRSI !== null) {
-      // RSI低于30超卖，加分
-      if (currentRSI < 30) {
-        score += 1;
-      }
-      
-      // RSI高于70超买，减分
-      if (currentRSI > 70) {
-        score -= 1;
-      }
+      if (currentRSI < 30) score += 2; // RSI超卖
+      if (currentRSI > 70) score -= 2; // RSI超买
     }
     
-    // 2. 价值分析得分
-    const isPELow = financials.pe_ratio < 15;
-    const isPBLow = financials.pb_ratio < 1.5;
+    // 基本面因素 (权重: 30%)
+    if (financials.pe_ratio < 15) score += 1.5; // PE较低
+    if (financials.debt_to_equity < 1) score += 1; // 较低的负债率
+    if (financials.profit_margin > 0.15) score += 1; // 较高的利润率
     
-    if (isPELow) score += 1;
-    if (isPBLow) score += 1;
+    // 情绪因素 (权重: 30%)
+    score += sentimentScore * 3; // 情绪得分 (-1到1) * 3
     
-    if (financials.pe_ratio > 25) score -= 1;
-    if (financials.pb_ratio > 3) score -= 1;
-    
-    // 3. 情绪分析得分
-    const todayNews = newsData.filter(news => news.date === currentDate);
-    
-    if (todayNews.length > 0) {
-      // 计算平均情绪分数
-      const avgSentiment = todayNews.reduce((sum, news) => sum + news.sentiment, 0) / todayNews.length;
-      
-      // 把-1到1的情绪分数转换为-2到2的得分
-      score += avgSentiment * 2;
-    }
-    
-    // 根据总分决定交易信号
-    if (score >= 3) {
+    // 根据综合评分做出决策
+    if (score > 4) {
       return { signal: 'buy' };
-    } else if (score <= -3) {
+    } else if (score < -2) {
       return { signal: 'sell' };
     }
     
+    // 无明确信号
     return { signal: 'hold' };
   };
   
