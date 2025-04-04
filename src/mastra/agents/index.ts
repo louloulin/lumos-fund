@@ -1,10 +1,17 @@
 // 导出所有投资代理
 
 // 投资风格代理
-export * from './valueInvestingAgent';
-export * from './growthInvestingAgent';
-export * from './technicalAnalysisAgent';
-export * from './quantInvestingAgent';
+import { valueInvestingAgent as originalValueAgent } from './valueInvestingAgent';
+import { growthInvestingAgent as originalGrowthAgent } from './growthInvestingAgent';
+import { trendInvestingAgent as originalTrendAgent } from './trendInvestingAgent';
+import { quantInvestingAgent as originalQuantAgent } from './quantInvestingAgent';
+import { addRunMethod } from './agentAdapter';
+
+// 增强代理，添加run方法
+export const valueInvestingAgent = addRunMethod(originalValueAgent);
+export const growthInvestingAgent = addRunMethod(originalGrowthAgent);
+export const trendInvestingAgent = addRunMethod(originalTrendAgent);
+export const quantInvestingAgent = addRunMethod(originalQuantAgent);
 
 // 专业分析代理
 export * from './sentimentAnalysisAgent';

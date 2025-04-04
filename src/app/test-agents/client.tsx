@@ -1,312 +1,439 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
-import { testValueAgent, testGrowthAgent, testTrendAgent, testQuantAgent, testAllAgents } from '@/actions/testAIAgent';
+import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { runValueAgent, runGrowthAgent, runTrendAgent, runQuantAgent, runAllAgents } from '@/actions/runAIAgentAnalysis';
 
-export default function TestAgentClient() {
+export function TestAgentClient() {
   const [ticker, setTicker] = useState('AAPL');
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<{[key: string]: boolean}>({});
   const [activeTab, setActiveTab] = useState('value');
-  const [testAllLoading, setTestAllLoading] = useState(false);
-
-  const [results, setResults] = useState<{
-    value?: any;
-    growth?: any;
-    trend?: any;
-    quant?: any;
-    all?: any;
-  }>({});
+  const [results, setResults] = useState<{[key: string]: any}>({});
 
   const handleTickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTicker(e.target.value.toUpperCase());
   };
 
-  const runTest = async (agentType: 'value' | 'growth' | 'trend' | 'quant') => {
-    setLoading(true);
-    
+  const runValueTest = async () => {
+    setIsLoading(prev => ({ ...prev, value: true }));
     try {
-      let result;
-      switch (agentType) {
-        case 'value':
-          result = await testValueAgent(ticker);
-          break;
-        case 'growth':
-          result = await testGrowthAgent(ticker);
-          break;
-        case 'trend':
-          result = await testTrendAgent(ticker);
-          break;
-        case 'quant':
-          result = await testQuantAgent(ticker);
-          break;
-      }
-      
-      setResults(prev => ({ ...prev, [agentType]: result }));
+      const result = await runValueAgent(ticker);
+      setResults(prev => ({ ...prev, value: result }));
     } catch (error) {
-      console.error(`测试${agentType}代理失败:`, error);
+      console.error('Value agent analysis failed:', error);
+      setResults(prev => ({ 
+        ...prev, 
+        value: { 
+          error: error instanceof Error ? error.message : 'Analysis failed' 
+        } 
+      }));
     } finally {
-      setLoading(false);
+      setIsLoading(prev => ({ ...prev, value: false }));
+    }
+  };
+
+  const runGrowthTest = async () => {
+    setIsLoading(prev => ({ ...prev, growth: true }));
+    try {
+      const result = await runGrowthAgent(ticker);
+      setResults(prev => ({ ...prev, growth: result }));
+    } catch (error) {
+      console.error('Growth agent analysis failed:', error);
+      setResults(prev => ({ 
+        ...prev, 
+        growth: { 
+          error: error instanceof Error ? error.message : 'Analysis failed' 
+        } 
+      }));
+    } finally {
+      setIsLoading(prev => ({ ...prev, growth: false }));
+    }
+  };
+
+  const runTrendTest = async () => {
+    setIsLoading(prev => ({ ...prev, trend: true }));
+    try {
+      const result = await runTrendAgent(ticker);
+      setResults(prev => ({ ...prev, trend: result }));
+    } catch (error) {
+      console.error('Trend agent analysis failed:', error);
+      setResults(prev => ({ 
+        ...prev, 
+        trend: { 
+          error: error instanceof Error ? error.message : 'Analysis failed' 
+        } 
+      }));
+    } finally {
+      setIsLoading(prev => ({ ...prev, trend: false }));
+    }
+  };
+
+  const runQuantTest = async () => {
+    setIsLoading(prev => ({ ...prev, quant: true }));
+    try {
+      const result = await runQuantAgent(ticker);
+      setResults(prev => ({ ...prev, quant: result }));
+    } catch (error) {
+      console.error('Quant agent analysis failed:', error);
+      setResults(prev => ({ 
+        ...prev, 
+        quant: { 
+          error: error instanceof Error ? error.message : 'Analysis failed' 
+        } 
+      }));
+    } finally {
+      setIsLoading(prev => ({ ...prev, quant: false }));
     }
   };
 
   const runAllTests = async () => {
-    setTestAllLoading(true);
+    setIsLoading(prev => ({ 
+      ...prev, 
+      value: true,
+      growth: true,
+      trend: true,
+      quant: true,
+      all: true
+    }));
     
     try {
-      const result = await testAllAgents(ticker);
-      setResults(prev => ({ 
-        ...prev, 
-        all: result,
-        value: result.results?.value,
-        growth: result.results?.growth,
-        trend: result.results?.trend,
-        quant: result.results?.quant
+      const result = await runAllAgents(ticker);
+      
+      setResults(prev => ({
+        ...prev,
+        value: result.results[0],
+        growth: result.results[1],
+        trend: result.results[2],
+        quant: result.results[3],
+        all: result.consensus
       }));
     } catch (error) {
-      console.error("测试所有代理失败:", error);
+      console.error('All agents analysis failed:', error);
+      setResults(prev => ({ 
+        ...prev, 
+        all: { 
+          error: error instanceof Error ? error.message : 'Analysis failed' 
+        } 
+      }));
     } finally {
-      setTestAllLoading(false);
+      setIsLoading(prev => ({ 
+        ...prev, 
+        value: false,
+        growth: false,
+        trend: false,
+        quant: false,
+        all: false
+      }));
     }
   };
 
-  const getSignalBadge = (text: string) => {
-    if (text.includes('看涨') || text.toLowerCase().includes('bullish') || text.includes('buy')) {
-      return <Badge className="bg-green-500">看涨</Badge>;
-    } else if (text.includes('看跌') || text.toLowerCase().includes('bearish') || text.includes('sell')) {
-      return <Badge className="bg-red-500">看跌</Badge>;
+  const getSignalBadge = (signal: string) => {
+    if (signal === 'buy') {
+      return <Badge className="bg-green-500 hover:bg-green-600">买入</Badge>;
+    } else if (signal === 'sell') {
+      return <Badge className="bg-red-500 hover:bg-red-600">卖出</Badge>;
     } else {
-      return <Badge>中性</Badge>;
+      return <Badge className="bg-yellow-500 hover:bg-yellow-600">持有</Badge>;
     }
   };
 
-  const getConfidence = (text: string) => {
-    const match = text.match(/(\d+)%/);
-    return match ? match[1] : '未知';
+  const getConfidence = (confidence: number) => {
+    if (confidence >= 80) {
+      return <Badge className="bg-green-500 hover:bg-green-600">高确信度 ({confidence}%)</Badge>;
+    } else if (confidence >= 50) {
+      return <Badge className="bg-yellow-500 hover:bg-yellow-600">中等确信度 ({confidence}%)</Badge>;
+    } else {
+      return <Badge className="bg-red-500 hover:bg-red-600">低确信度 ({confidence}%)</Badge>;
+    }
   };
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>AI代理测试控制台</CardTitle>
-          <CardDescription>
-            输入股票代码并选择要测试的AI投资代理类型
-          </CardDescription>
+          <CardTitle>测试AI投资代理</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center space-x-4">
-            <div className="flex-1">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-3">
               <Input
-                placeholder="股票代码 (例如: AAPL, TSLA)"
+                placeholder="输入股票代码 (例如: AAPL, MSFT, GOOGL)"
                 value={ticker}
                 onChange={handleTickerChange}
               />
             </div>
-            <Button
-              onClick={() => runTest(activeTab as any)}
-              disabled={loading || !ticker}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  测试中...
-                </>
-              ) : (
-                <>测试当前代理</>
-              )}
-            </Button>
-            <Button
+            <Button 
               onClick={runAllTests}
-              disabled={testAllLoading || !ticker}
-              variant="secondary"
+              disabled={isLoading.all}
+              className="w-full"
             >
-              {testAllLoading ? (
+              {isLoading.all ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  测试所有...
+                  分析中...
                 </>
-              ) : (
-                <>测试所有代理</>
-              )}
+              ) : '运行所有代理'}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="value" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+      {results.all && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>共识分析结果 ({ticker})</span>
+              {getSignalBadge(results.all.signal)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">确信度:</span>
+                {getConfidence(results.all.confidence)}
+              </div>
+              <div className="mt-4">
+                <h4 className="font-medium mb-1">分析摘要:</h4>
+                <p className="text-sm whitespace-pre-line">{results.all.explanation}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid grid-cols-4 mb-4">
           <TabsTrigger value="value">价值投资</TabsTrigger>
           <TabsTrigger value="growth">成长投资</TabsTrigger>
           <TabsTrigger value="trend">趋势投资</TabsTrigger>
           <TabsTrigger value="quant">量化投资</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="value">
-          <ResultCard
-            title="价值投资代理"
-            description="模拟巴菲特风格，关注公司的内在价值和经济护城河"
-            result={results.value}
-            onRunTest={() => runTest('value')}
-            loading={loading && activeTab === 'value'}
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>价值投资代理</span>
+                <Button 
+                  onClick={runValueTest}
+                  disabled={isLoading.value}
+                  size="sm"
+                >
+                  {isLoading.value ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      分析中...
+                    </>
+                  ) : '运行分析'}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading.value ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : results.value ? (
+                results.value.error ? (
+                  <div className="flex items-center gap-2 text-red-500">
+                    <AlertCircle className="h-5 w-5" />
+                    <span>{results.value.error}</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">信号:</span>
+                      {getSignalBadge(results.value.signal)}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">确信度:</span>
+                      {getConfidence(results.value.confidence)}
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-1">分析理由:</h4>
+                      <p className="text-sm whitespace-pre-line">{results.value.reasoning}</p>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  点击"运行分析"按钮开始价值投资分析
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
-        
+
         <TabsContent value="growth">
-          <ResultCard
-            title="成长投资代理"
-            description="模拟彼得·林奇风格，寻找成长潜力大的公司"
-            result={results.growth}
-            onRunTest={() => runTest('growth')}
-            loading={loading && activeTab === 'growth'}
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>成长投资代理</span>
+                <Button 
+                  onClick={runGrowthTest}
+                  disabled={isLoading.growth}
+                  size="sm"
+                >
+                  {isLoading.growth ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      分析中...
+                    </>
+                  ) : '运行分析'}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading.growth ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : results.growth ? (
+                results.growth.error ? (
+                  <div className="flex items-center gap-2 text-red-500">
+                    <AlertCircle className="h-5 w-5" />
+                    <span>{results.growth.error}</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">信号:</span>
+                      {getSignalBadge(results.growth.signal)}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">确信度:</span>
+                      {getConfidence(results.growth.confidence)}
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-1">分析理由:</h4>
+                      <p className="text-sm whitespace-pre-line">{results.growth.reasoning}</p>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  点击"运行分析"按钮开始成长投资分析
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
-        
+
         <TabsContent value="trend">
-          <ResultCard
-            title="趋势投资代理"
-            description="模拟德拉肯米勒风格，关注价格趋势和动量"
-            result={results.trend}
-            onRunTest={() => runTest('trend')}
-            loading={loading && activeTab === 'trend'}
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>趋势投资代理</span>
+                <Button 
+                  onClick={runTrendTest}
+                  disabled={isLoading.trend}
+                  size="sm"
+                >
+                  {isLoading.trend ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      分析中...
+                    </>
+                  ) : '运行分析'}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading.trend ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : results.trend ? (
+                results.trend.error ? (
+                  <div className="flex items-center gap-2 text-red-500">
+                    <AlertCircle className="h-5 w-5" />
+                    <span>{results.trend.error}</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">信号:</span>
+                      {getSignalBadge(results.trend.signal)}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">确信度:</span>
+                      {getConfidence(results.trend.confidence)}
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-1">分析理由:</h4>
+                      <p className="text-sm whitespace-pre-line">{results.trend.reasoning}</p>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  点击"运行分析"按钮开始趋势投资分析
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
-        
+
         <TabsContent value="quant">
-          <ResultCard
-            title="量化投资代理"
-            description="基于多因子模型的投资风格，综合分析价值、成长和质量等因子"
-            result={results.quant}
-            onRunTest={() => runTest('quant')}
-            loading={loading && activeTab === 'quant'}
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>量化投资代理</span>
+                <Button 
+                  onClick={runQuantTest}
+                  disabled={isLoading.quant}
+                  size="sm"
+                >
+                  {isLoading.quant ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      分析中...
+                    </>
+                  ) : '运行分析'}
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading.quant ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : results.quant ? (
+                results.quant.error ? (
+                  <div className="flex items-center gap-2 text-red-500">
+                    <AlertCircle className="h-5 w-5" />
+                    <span>{results.quant.error}</span>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">信号:</span>
+                      {getSignalBadge(results.quant.signal)}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">确信度:</span>
+                      {getConfidence(results.quant.confidence)}
+                    </div>
+                    <div>
+                      <h4 className="font-medium mb-1">分析理由:</h4>
+                      <p className="text-sm whitespace-pre-line">{results.quant.reasoning}</p>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  点击"运行分析"按钮开始量化投资分析
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
-  );
-}
-
-type ResultCardProps = {
-  title: string;
-  description: string;
-  result: any;
-  onRunTest: () => void;
-  loading: boolean;
-};
-
-function ResultCard({ title, description, result, onRunTest, loading }: ResultCardProps) {
-  if (!result) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent className="h-64 flex items-center justify-center text-gray-400">
-          {loading ? (
-            <div className="flex flex-col items-center">
-              <Loader2 className="h-12 w-12 animate-spin mb-4" />
-              <p>正在分析中，请稍候...</p>
-            </div>
-          ) : (
-            <p>运行测试以查看AI代理分析结果</p>
-          )}
-        </CardContent>
-        <CardFooter>
-          <Button onClick={onRunTest} disabled={loading} className="w-full">
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                分析中...
-              </>
-            ) : (
-              <>运行测试</>
-            )}
-          </Button>
-        </CardFooter>
-      </Card>
-    );
-  }
-
-  if (!result.success) {
-    return (
-      <Card className="border-red-200">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>{title}</CardTitle>
-            <AlertTriangle className="h-5 w-5 text-red-500" />
-          </div>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent className="h-64 overflow-auto">
-          <div className="rounded-md bg-red-50 p-4 text-red-700">
-            <h3 className="text-sm font-semibold">测试失败</h3>
-            <p className="mt-2 text-sm">{result.error || '未知错误'}</p>
-          </div>
-        </CardContent>
-        <CardFooter>
-          <Button onClick={onRunTest} disabled={loading} className="w-full">
-            重新测试
-          </Button>
-        </CardFooter>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>{title}</CardTitle>
-          <div className="flex items-center space-x-2">
-            <CheckCircle className="h-5 w-5 text-green-500" />
-            {result.analysis && getSignalBadge(result.analysis)}
-            {result.analysis && (
-              <Badge variant="outline">
-                置信度: {getConfidence(result.analysis)}%
-              </Badge>
-            )}
-          </div>
-        </div>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent className="h-64 overflow-auto">
-        <div className="rounded-md bg-gray-50 p-4 text-sm whitespace-pre-wrap">
-          {result.analysis || '无分析结果'}
-        </div>
-        {result.parsedSignal && (
-          <div className="mt-4 rounded-md bg-blue-50 p-4">
-            <h3 className="font-semibold text-blue-700">解析结果</h3>
-            <div className="mt-2 space-y-2">
-              <div><span className="font-medium">操作:</span> {result.parsedSignal.action}</div>
-              <div><span className="font-medium">置信度:</span> {Math.round(result.parsedSignal.confidence * 100)}%</div>
-              {result.parsedSignal.position !== undefined && (
-                <div><span className="font-medium">建议仓位:</span> {Math.round(result.parsedSignal.position * 100)}%</div>
-              )}
-            </div>
-          </div>
-        )}
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <p className="text-xs text-gray-500">
-          {new Date(result.timestamp).toLocaleString()}
-        </p>
-        <Button onClick={onRunTest} disabled={loading} variant="outline">
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              重新分析中...
-            </>
-          ) : (
-            <>重新测试</>
-          )}
-        </Button>
-      </CardFooter>
-    </Card>
   );
 } 
