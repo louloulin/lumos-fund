@@ -2,6 +2,7 @@ import { run, message, AgentState, Events, MemoryVectorStoreOptions, MemoryVecto
 import { stockPriceTool, financialMetricsTool } from '../tools/stockTool';
 import { technicalAnalysisTool, trendAnalysisTool } from '../tools/technicalTool';
 import { newsSentimentTool, socialMediaSentimentTool } from '../tools/sentimentTool';
+import { createQwen } from 'qwen-ai-provider';
 
 interface AnalyzeAgentState extends AgentState {
   ticker: string;
@@ -25,6 +26,12 @@ const memoryOptions: MemoryVectorStoreOptions = {
 
 const memory = new MemoryVectorStore(memoryOptions);
 
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
+
 /**
  * 股票分析代理
  * 一个专门分析股票和市场数据的AI代理
@@ -32,7 +39,7 @@ const memory = new MemoryVectorStore(memoryOptions);
 export const createAnalysisAgent = () => {
   const agent = run<AnalyzeAgentState>({
     name: "MarketAnalyst",
-    model: "gpt-4-turbo",
+    model: qwen('qwen-plus-2024-12-20'),
     memory,
     systemMessage: `你是一位专业的股票分析师，名为MarketAnalyst。你的职责是分析股票数据并提供投资建议。
     

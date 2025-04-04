@@ -4,6 +4,7 @@ import { stockPriceTool, financialMetricsTool } from '../tools/stockTool';
 import { technicalAnalysisTool } from '../tools/technicalTool';
 import { newsSentimentTool } from '../tools/sentimentTool';
 import { portfolioOptimizationTool, portfolioRiskTool } from '../tools/portfolioTool';
+import { createQwen } from 'qwen-ai-provider';
 
 interface TradingAgentState extends AgentState {
   portfolio: {
@@ -45,6 +46,12 @@ const memoryOptions: MemoryVectorStoreOptions = {
 
 const memory = new MemoryVectorStore(memoryOptions);
 
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
+
 /**
  * 创建AI交易助手代理
  * @param initialCash 初始资金
@@ -54,7 +61,7 @@ const memory = new MemoryVectorStore(memoryOptions);
 export const createTradingAgent = (initialCash = 100000, riskProfile = 'moderate', timeHorizon = 'medium') => {
   const agent = run<TradingAgentState>({
     name: "LumosFundAI",
-    model: "gpt-4-turbo",
+    model: qwen('qwen-plus-2024-12-20'),
     memory,
     systemMessage: `你是LumosFund AI，一个专业的量化交易AI助手。你的任务是帮助用户分析股票市场，提供投资建议，并执行交易策略。
 

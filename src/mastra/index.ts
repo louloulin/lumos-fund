@@ -309,7 +309,7 @@ export const mastra = new Mastra({
   }
 });
 
-// 设置mastra的getAgent和getWorkflow方法
+// 设置mastra的getAgent方法
 mastra.getAgent = (name: string) => {
   switch (name) {
     case 'valueInvestingAgent':
@@ -341,6 +341,7 @@ mastra.getAgent = (name: string) => {
   }
 };
 
+// 设置mastra的getWorkflow方法
 mastra.getWorkflow = (name: string) => {
   switch (name) {
     case 'tradingDecisionWorkflow':
@@ -383,77 +384,4 @@ export {
   strategyRecommendationTool,
   innovationAssessmentTool,
   revenueGrowthTool
-};
-
-// 导出 Mastra 工具
-export * from './tools/stockPriceTool';
-export * from './tools/financialMetricsTool';
-export * from './tools/newsSentimentTool';
-export * from './tools/technicalIndicatorsTool';
-export * from './tools/marketDataTool';
-export * from './tools/backtestTool';
-export * from './tools/strategyRecommendationTool';
-
-// 导出代理
-export * from './agents/valueInvestingAgent';
-export * from './agents/technicalAnalysisAgent';
-export * from './agents/sentimentAnalysisAgent';
-export * from './agents/riskManagementAgent';
-export * from './agents/portfolioOptimizationAgent';
-export * from './agents/strategyRecommendationAgent';
-
-// 导出工作流
-export * from './workflows/tradingDecisionWorkflow';
-export * from './workflows/stockAnalysisWorkflow';
-
-// Mastra 实例配置
-import { Mastra } from '@mastra/core';
-
-// 导入代理
-import { valueInvestingAgent } from './agents/valueInvestingAgent';
-import { technicalAnalysisAgent } from './agents/technicalAnalysisAgent';
-import { sentimentAnalysisAgent } from './agents/sentimentAnalysisAgent';
-import { riskManagementAgent } from './agents/riskManagementAgent';
-import { portfolioOptimizationAgent } from './agents/portfolioOptimizationAgent';
-import { strategyRecommendationAgent } from './agents/strategyRecommendationAgent';
-
-// 导入工作流
-import { tradingDecisionWorkflow } from './workflows/tradingDecisionWorkflow';
-import { stockAnalysisWorkflow } from './workflows/stockAnalysisWorkflow';
-
-// 导出工具
-export * from './tools/stockPriceTool';
-export * from './tools/financialMetricsTool';
-export * from './tools/newsSentimentTool';
-export * from './tools/technicalIndicatorsTool';
-export * from './tools/marketDataTool';
-export * from './tools/backtestTool';
-export * from './tools/strategyRecommendationTool';
-
-// 导出代理
-export { valueInvestingAgent } from './agents/valueInvestingAgent';
-export { technicalAnalysisAgent } from './agents/technicalAnalysisAgent';
-export { sentimentAnalysisAgent } from './agents/sentimentAnalysisAgent';
-export { riskManagementAgent } from './agents/riskManagementAgent';
-export { portfolioOptimizationAgent } from './agents/portfolioOptimizationAgent';
-export { strategyRecommendationAgent } from './agents/strategyRecommendationAgent';
-
-// 导出工作流
-export { tradingDecisionWorkflow } from './workflows/tradingDecisionWorkflow';
-export { stockAnalysisWorkflow } from './workflows/stockAnalysisWorkflow';
-
-// 创建和导出 Mastra 实例
-export const mastra = new Mastra({
-  agents: {
-    valueInvestingAgent,
-    technicalAnalysisAgent,
-    sentimentAnalysisAgent,
-    riskManagementAgent,
-    portfolioOptimizationAgent,
-    strategyRecommendationAgent
-  },
-  workflows: {
-    tradingDecisionWorkflow,
-    stockAnalysisWorkflow
-  }
-}); 
+}; 
