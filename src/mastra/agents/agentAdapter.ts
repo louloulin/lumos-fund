@@ -64,4 +64,6 @@ export function addRunMethod(agent: MastraAgent): MastraAgent {
       throw error;
     }
   };
- 
+  
+  return agent;
+} 
