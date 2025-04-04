@@ -354,6 +354,54 @@ export const tradingDecisionWorkflow = new Workflow({
 });
 ``` ✅
 
+### 3.4 多因子分析与排名系统 ✅
+
+LumosFund将实现基于AI的多因子分析系统，使用Mastra框架的代理协作分析股票的各个因子维度。
+
+```typescript
+// 多因子分析系统架构
+interface FactorAnalysisResult {
+  ticker: string;
+  date: string;
+  factorScores: {
+    value: number; // 0-100
+    growth: number; // 0-100
+    quality: number; // 0-100
+    momentum: number; // 0-100
+    volatility: number; // 0-100
+    size: number; // 0-100
+    overall: number; // 0-100
+  };
+  factorRankings: {
+    topFactors: string[];
+    bottomFactors: string[];
+  };
+  interpretation: {
+    summary: string;
+    valueAnalysis: string;
+    growthAnalysis: string;
+    qualityAnalysis: string;
+    momentumAnalysis: string;
+    volatilityAnalysis: string;
+    sizeAnalysis: string;
+  };
+  investmentImplications: {
+    suitability: 'high' | 'medium' | 'low';
+    timeHorizon: 'short' | 'medium' | 'long';
+    riskProfile: 'conservative' | 'moderate' | 'aggressive';
+    recommendations: string[];
+  };
+}
+```
+
+多因子分析系统包含以下关键特性：
+
+1. **综合因子评估**：分析价值、成长、质量、动量、波动率、规模六大核心因子 ✅
+2. **AI驱动解读**：每个因子由专业AI代理分析并提供解释 ✅
+3. **投资适配性**：根据因子表现确定适合的投资者类型和时间范围 ✅
+4. **股票排名**：对多只股票按特定因子表现进行排名 ✅
+5. **投资组合构建**：基于多因子分析构建最优投资组合 ✅
+
 ## 4. 前端UI设计
 
 ### 4.1 主要界面
@@ -842,5 +890,166 @@ export async function analyzePortfolio(
   // 分析每个持仓，运行AI代理，整合结果...
   
   return result;
+}
+``` ✅
+
+### 7.4 多因子分析与评估 ✅
+
+```typescript
+// src/actions/ai-factor-analysis.ts
+'use server'
+
+import { createLogger } from '@/lib/logger.server';
+import { 
+  quantInvestingAgent,
+  riskManagementAgent 
+} from '@/mastra/agents';
+import { MarketDataService } from '@/services/marketDataService';
+
+export async function analyzeStockFactors(
+  ticker: string,
+  factors: string[] = ['value', 'growth', 'quality', 'momentum', 'volatility', 'size']
+): Promise<FactorAnalysisResult> {
+  try {
+    // 获取股票数据
+    const [priceData, financialData, newsData] = await Promise.all([
+      marketDataService.fetchStockPriceHistory(ticker, '1y'),
+      marketDataService.fetchFinancialData(ticker),
+      marketDataService.fetchNewsData(ticker, 30)
+    ]);
+    
+    // 并行执行所有因子分析
+    const [valueResult, growthResult, qualityResult, momentumResult, volatilityResult, sizeResult] = 
+      await Promise.all([
+        quantInvestingAgent.run({ messages: [{ role: 'user', content: valuePrompt }] }),
+        quantInvestingAgent.run({ messages: [{ role: 'user', content: growthPrompt }] }),
+        quantInvestingAgent.run({ messages: [{ role: 'user', content: qualityPrompt }] }),
+        quantInvestingAgent.run({ messages: [{ role: 'user', content: momentumPrompt }] }),
+        quantInvestingAgent.run({ messages: [{ role: 'user', content: volatilityPrompt }] }),
+        quantInvestingAgent.run({ messages: [{ role: 'user', content: sizePrompt }] })
+      ]);
+    
+    // 汇总因子分析结果
+    const factorScores = {
+      value: valueAnalysis.score || 50,
+      growth: growthAnalysis.score || 50,
+      quality: qualityAnalysis.score || 50,
+      momentum: momentumAnalysis.score || 50,
+      volatility: volatilityAnalysis.score || 50,
+      size: sizeAnalysis.score || 50,
+      overall: 0 // 将在后面计算
+    };
+    
+    // 根据因子分析提供投资建议
+    // ...
+    
+    return result;
+  } catch (error) {
+    logger.error('多因子分析失败', { ticker, error });
+    throw error;
+  }
+}
+
+/**
+ * 批量分析多只股票的因子表现，并进行排名
+ */
+export async function rankStocksByFactors(
+  tickers: string[],
+  primaryFactor: 'value' | 'growth' | 'quality' | 'momentum' | 'volatility' | 'overall' = 'overall'
+) {
+  // 并行分析所有股票
+  const analysisPromises = tickers.map(ticker => analyzeStockFactors(ticker));
+  const analysisResults = await Promise.all(analysisPromises);
+  
+  // 根据主要因子排序
+  const rankings = analysisResults
+    .map(result => ({
+      ticker: result.ticker,
+      score: result.factorScores[primaryFactor],
+      rank: 0 // 将在排序后设置
+    }))
+    .sort((a, b) => b.score - a.score);
+  
+  return {
+    date: new Date().toISOString(),
+    rankings,
+    topStock: rankings[0].ticker,
+    bottomStock: rankings[rankings.length - 1].ticker,
+    factorDescription: factorDescriptions[primaryFactor]
+  };
+}
+``` ✅
+
+### 7.5 多因子测试与评估 ✅
+
+```typescript
+// src/actions/test-factor-analysis.ts
+'use server'
+
+import { createLogger } from '@/lib/logger.server';
+import { analyzeStockFactors, rankStocksByFactors } from './ai-factor-analysis';
+
+export async function testSingleStockFactorAnalysis(ticker: string = 'AAPL'): Promise<any> {
+  try {
+    const startTime = Date.now();
+    const result = await analyzeStockFactors(ticker);
+    const duration = Date.now() - startTime;
+    
+    return {
+      success: true,
+      ticker,
+      duration,
+      factorScores: result.factorScores,
+      topFactors: result.factorRankings.topFactors,
+      bottomFactors: result.factorRankings.bottomFactors,
+      recommendations: result.investmentImplications.recommendations.slice(0, 2)
+    };
+  } catch (error) {
+    return {
+      success: false,
+      ticker,
+      error: `测试失败: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+}
+
+export async function testOptimalFactorPortfolio(stockCount: number = 3): Promise<any> {
+  try {
+    // 测试股票列表
+    const candidateStocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA', 'JPM', 'V', 'JNJ'];
+    
+    // 获取每个股票的多因子分析
+    const analysisPromises = candidateStocks.map(ticker => 
+      analyzeStockFactors(ticker)
+        .then(result => ({
+          ticker,
+          overallScore: result.factorScores.overall,
+          factorScores: result.factorScores
+        }))
+    );
+    
+    // 等待所有分析完成并按综合得分排序
+    const analysisResults = await Promise.all(analysisPromises);
+    const sortedStocks = analysisResults.sort((a, b) => b.overallScore - a.overallScore);
+    
+    // 选择前N只股票作为投资组合
+    const portfolioStocks = sortedStocks.slice(0, stockCount);
+    
+    return {
+      success: true,
+      portfolioStocks: portfolioStocks.map(stock => ({
+        ticker: stock.ticker,
+        overallScore: stock.overallScore
+      })),
+      portfolioScore: Math.round(
+        portfolioStocks.reduce((sum, stock) => sum + stock.overallScore, 0) / portfolioStocks.length
+      )
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: `测试失败: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
 }
 ``` ✅
