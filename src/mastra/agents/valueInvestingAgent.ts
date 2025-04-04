@@ -5,8 +5,15 @@ import { calculateIntrinsicValueTool } from '../tools/valuationTools';
 import { analyzeFundamentalsTool } from '../tools/fundamentalTools';
 import { analyzeConsistencyTool } from '../tools/consistencyTools';
 import { analyzeManagementTool } from '../tools/managementTools';
+import { createQwen } from 'qwen-ai-provider';
 
 const logger = createLogger('valueInvestingAgent');
+
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
 
 /**
  * 价值投资代理 - 模拟沃伦·巴菲特投资风格
@@ -17,9 +24,9 @@ const logger = createLogger('valueInvestingAgent');
 export const valueInvestingAgent = new Agent({
   id: 'valueInvestingAgent',
   description: '价值投资代理 - 模拟沃伦·巴菲特投资风格',
-  apiKey: process.env.OPENAI_API_KEY,
-  provider: 'openai',
-  model: 'gpt-4-turbo-preview',
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  provider: 'qwen',
+  model: qwen('qwen-plus-2024-12-20'),
   systemPrompt: `你是一位价值投资专家，采用沃伦·巴菲特的投资风格和思维方式。
 
 作为股票分析师，你会重点关注以下因素:

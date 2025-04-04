@@ -1,7 +1,14 @@
 import { Agent } from '@mastra/core/agent';
 import { createLogger } from '@/lib/logger.server';
+import { createQwen } from 'qwen-ai-provider';
 
 const logger = createLogger('investmentCommitteeAgent');
+
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
 
 /**
  * 投资委员会代理
@@ -12,9 +19,9 @@ const logger = createLogger('investmentCommitteeAgent');
 export const investmentCommitteeAgent = new Agent({
   id: 'investmentCommitteeAgent',
   description: '投资委员会代理 - 整合各种投资分析并做出最终决策',
-  apiKey: process.env.OPENAI_API_KEY,
-  provider: 'openai',
-  model: 'gpt-4-turbo-preview',
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  provider: 'qwen',
+  model: qwen('qwen-plus-2024-12-20'),
   systemPrompt: `你是一位资深投资委员会主席，负责整合多种投资风格的分析结果，并做出最终投资决策。
 
 你的首要任务是权衡不同投资分析师的建议，考虑各种投资风格的优缺点:

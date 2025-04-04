@@ -1,7 +1,14 @@
 import { Agent } from '@mastra/core/agent';
 import { createLogger } from '@/lib/logger.server';
+import { createQwen } from 'qwen-ai-provider';
 
 const logger = createLogger('riskManagementAgent');
+
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
 
 /**
  * 风险管理代理
@@ -12,9 +19,9 @@ const logger = createLogger('riskManagementAgent');
 export const riskManagementAgent = new Agent({
   id: 'riskManagementAgent',
   description: '风险管理代理 - 专注于投资风险评估和管理',
-  apiKey: process.env.OPENAI_API_KEY,
-  provider: 'openai',
-  model: 'gpt-4-turbo-preview',
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  provider: 'qwen',
+  model: qwen('qwen-plus-2024-12-20'),
   systemPrompt: `你是一位风险管理专家，负责评估投资风险并提供风险管理建议。
 
 作为风险管理专家，你会重点关注以下风险因素:

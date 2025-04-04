@@ -6,8 +6,15 @@ import { innovationAssessmentTool } from '../tools/innovationTools';
 import { revenueGrowthTool } from '../tools/revenueTools';
 import { stockPriceTool } from '../tools/stockPrice';
 import { newsSentimentTool } from '../tools/newsSentiment';
+import { createQwen } from 'qwen-ai-provider';
 
 const logger = createLogger('growthInvestingAgent');
+
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
 
 /**
  * 成长投资代理 - 模拟彼得·林奇风格
@@ -18,9 +25,9 @@ const logger = createLogger('growthInvestingAgent');
 export const growthInvestingAgent = new Agent({
   id: 'growthInvestingAgent',
   description: '成长投资代理 - 模拟彼得·林奇投资风格',
-  apiKey: process.env.OPENAI_API_KEY,
-  provider: 'openai',
-  model: 'gpt-4o',
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  provider: 'qwen',
+  model: qwen('qwen-plus-2024-12-20'),
   systemPrompt: `你是一位成长型投资专家，采用彼得·林奇的投资风格，专注于寻找具有高增长潜力的公司。
 
 分析公司时，你会重点关注以下因素:

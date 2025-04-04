@@ -2,8 +2,15 @@ import { Agent } from '@mastra/core/agent';
 import { createLogger } from '@/lib/logger.server';
 import { technicalIndicatorsTool } from '../tools/technicalIndicatorTools';
 import { stockPriceTool, historicalPriceTool, volumeTool } from '../tools/marketDataTools';
+import { createQwen } from 'qwen-ai-provider';
 
 const logger = createLogger('trendInvestingAgent');
+
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
 
 /**
  * 趋势投资代理 - 模拟斯坦利·德拉肯米勒投资风格
@@ -14,9 +21,9 @@ const logger = createLogger('trendInvestingAgent');
 export const trendInvestingAgent = new Agent({
   id: 'trendInvestingAgent',
   description: '趋势投资代理 - 模拟斯坦利·德拉肯米勒投资风格',
-  apiKey: process.env.OPENAI_API_KEY,
-  provider: 'openai',
-  model: 'gpt-4o-mini',
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  provider: 'qwen',
+  model: qwen('qwen-plus-2024-12-20'),
   systemPrompt: `你是一位趋势投资专家，采用斯坦利·德拉肯米勒的投资风格，专注于识别和跟踪大趋势。
 
 分析股票时，你会重点关注以下因素:

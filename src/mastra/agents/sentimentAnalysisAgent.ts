@@ -2,8 +2,15 @@ import { Agent } from '@mastra/core/agent';
 import { createLogger } from '@/lib/logger.server';
 import { newsSentimentTool, socialSentimentTool, sentimentAnalysisTool } from '../tools/newsSentimentTools';
 import { stockPriceTool, volumeTool } from '../tools/marketDataTools';
+import { createQwen } from 'qwen-ai-provider';
 
 const logger = createLogger('sentimentAnalysisAgent');
+
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
 
 /**
  * 情绪分析代理
@@ -14,9 +21,9 @@ const logger = createLogger('sentimentAnalysisAgent');
 export const sentimentAnalysisAgent = new Agent({
   id: 'sentimentAnalysisAgent',
   description: '情绪分析代理 - 专注于分析市场情绪和新闻情绪',
-  apiKey: process.env.OPENAI_API_KEY,
-  provider: 'openai',
-  model: 'gpt-4-turbo-preview',
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  provider: 'qwen',
+  model: qwen('qwen-plus-2024-12-20'),
   systemPrompt: `你是一位市场情绪分析专家，擅长分析新闻、社交媒体和市场数据中的情绪信号。
 
 作为情绪分析师，你会重点关注以下因素:

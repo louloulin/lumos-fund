@@ -1,6 +1,12 @@
 import { Agent } from '@mastra/core/agent';
-import { openai } from '@ai-sdk/openai';
 import { z } from 'zod';
+import { createQwen } from 'qwen-ai-provider';
+
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
 
 // 导入相关工具
 import { historicalPriceTool } from '../tools/marketDataTools';
@@ -30,7 +36,7 @@ export const quantInvestingAgent = new Agent({
   name: 'Quantitative Investing Agent',
   description: '量化投资代理，使用统计套利和因子模型分析股票',
   schema: QuantInputSchema,
-  model: openai('gpt-4o'),
+  model: qwen('qwen-plus-2024-12-20'),
   instructions: `
     你是一个专业的量化投资分析师，专注于统计套利和多因子模型分析。
 

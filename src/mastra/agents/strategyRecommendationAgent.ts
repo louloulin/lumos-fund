@@ -1,12 +1,18 @@
 import { Agent } from '@mastra/core/agent';
-import { openai } from '@ai-sdk/openai';
 import { strategyRecommendationTool } from '../tools/strategyRecommendationTool';
 import { technicalIndicatorsTool } from '../tools/technicalIndicatorTools';
 import { marketDataTool } from '../tools/marketData';
 import { financialMetricsTool } from '../tools/financialMetrics';
 import { createLogger } from '@/lib/logger.server';
+import { createQwen } from 'qwen-ai-provider';
 
 const logger = createLogger('strategyRecommendationAgent');
+
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
 
 /**
  * 策略推荐代理 - 负责生成个性化的投资策略推荐
@@ -14,7 +20,7 @@ const logger = createLogger('strategyRecommendationAgent');
 export const strategyRecommendationAgent = new Agent({
   name: 'Strategy Recommendation Agent',
   description: '根据用户风险偏好和市场状况推荐最优投资策略',
-  model: openai('gpt-4o'),
+  model: qwen('qwen-plus-2024-12-20'),
   instructions: `
 你是一位专业的投资策略顾问，负责根据用户的风险承受能力、投资期限和市场状况，推荐个性化的投资策略组合。
 你的回答必须专业且富有洞见，但同时对非专业投资者来说应该容易理解。

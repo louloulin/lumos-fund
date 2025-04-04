@@ -3,6 +3,13 @@ import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import { createLogger } from '@/lib/logger.server';
 import { openai } from '@ai-sdk/openai';
+import { createQwen } from 'qwen-ai-provider';
+
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
 
 // 导入Agent、Tool、Workflow接口从正确的子模块
 import type { Tool } from '@mastra/core/tools';
@@ -73,9 +80,9 @@ const stockPriceTool: Tool = {
 const portfolioOptimizationAgent: Agent = new Agent({
   id: 'portfolioOptimizationAgent',
   description: '投资组合优化代理，根据风险收益优化投资组合',
-  apiKey: process.env.OPENAI_API_KEY,
-  provider: 'openai',
-  model: 'gpt-4-turbo-preview',
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  provider: 'qwen',
+  model: qwen('qwen-plus-2024-12-20'),
   systemPrompt: `
     你是一位专业的投资组合优化专家，负责根据风险收益分析优化投资组合。
     
@@ -96,9 +103,9 @@ const portfolioOptimizationAgent: Agent = new Agent({
 const executionAgent: Agent = new Agent({
   id: 'executionAgent',
   description: '执行代理，负责生成具体的交易执行计划',
-  apiKey: process.env.OPENAI_API_KEY,
-  provider: 'openai',
-  model: 'gpt-4-turbo-preview',
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  provider: 'qwen',
+  model: qwen('qwen-plus-2024-12-20'),
   systemPrompt: `
     你是一位专业的交易执行专家，负责根据投资决策生成具体的交易执行计划。
     
@@ -119,9 +126,9 @@ const executionAgent: Agent = new Agent({
 const tradingAgent: Agent = new Agent({
   id: 'tradingAgent',
   description: '综合交易代理，能够分析股票并给出投资建议',
-  apiKey: process.env.OPENAI_API_KEY,
-  provider: 'openai',
-  model: 'gpt-4-turbo-preview',
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  provider: 'qwen',
+  model: qwen('qwen-plus-2024-12-20'),
   systemPrompt: `
     你是一个专业的交易顾问，擅长从多角度分析股票，并给出清晰的投资建议。
     
