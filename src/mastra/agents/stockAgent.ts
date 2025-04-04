@@ -1,11 +1,17 @@
 import { Agent } from '@mastra/core/agent';
-import { openai } from '@ai-sdk/openai';
+import { createQwen } from 'qwen-ai-provider';
 import { marketDataTool } from '../tools/marketData';
+
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
 
 export const stockAgent = new Agent({
   name: 'Stock Analysis Agent',
   description: '专业的股票分析代理，提供全面的市场分析和投资建议',
-  model: openai('gpt-4'),
+  model: qwen('qwen-plus-2024-12-20'),
   instructions: `
     你是一个专业的股票分析师，专注于提供全面的市场分析和投资建议。
     
@@ -34,7 +40,7 @@ export const stockAgent = new Agent({
 export const valueInvestingAgent = new Agent({
   name: 'Value Investing Agent',
   description: '价值投资代理，模拟巴菲特投资风格',
-  model: openai('gpt-4'),
+  model: qwen('qwen-plus-2024-12-20'),
   instructions: `
     你是一个遵循巴菲特价值投资理念的AI分析师。
     
@@ -61,7 +67,7 @@ export const valueInvestingAgent = new Agent({
 export const growthInvestingAgent = new Agent({
   name: 'Growth Investing Agent',
   description: '成长投资代理，专注于高增长公司',
-  model: openai('gpt-4'),
+  model: qwen('qwen-plus-2024-12-20'),
   instructions: `
     你是一个专注于寻找高增长公司的AI分析师。
     
@@ -88,7 +94,7 @@ export const growthInvestingAgent = new Agent({
 export const trendInvestingAgent = new Agent({
   name: 'Trend Investing Agent',
   description: '趋势投资代理，基于技术分析',
-  model: openai('gpt-4'),
+  model: qwen('qwen-plus-2024-12-20'),
   instructions: `
     你是一个专注于技术分析和趋势跟踪的AI分析师。
     

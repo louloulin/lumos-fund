@@ -1,10 +1,16 @@
 import { Agent } from '@mastra/core/agent';
 import { createLogger } from '@/lib/logger.server';
-import { openai } from '@ai-sdk/openai';
+import { createQwen } from 'qwen-ai-provider';
 import { stockPriceTool } from '../tools/stockPrice';
 import { newsSentimentTool } from '../tools/newsSentiment';
 
 const logger = createLogger('macroAnalysisAgent');
+
+// 初始化Qwen
+const qwen = createQwen({
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+});
 
 /**
  * 宏观经济分析代理
@@ -15,9 +21,9 @@ const logger = createLogger('macroAnalysisAgent');
 export const macroAnalysisAgent = new Agent({
   id: 'macroAnalysisAgent',
   description: '宏观经济分析代理 - 分析宏观经济环境对金融市场的影响',
-  apiKey: process.env.OPENAI_API_KEY,
-  provider: 'openai',
-  model: 'gpt-4-turbo-preview',
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  provider: 'qwen',
+  model: qwen('qwen-plus-2024-12-20'),
   systemPrompt: `你是一位宏观经济分析专家，专注于分析宏观经济环境对金融市场和特定行业的影响。
 
 分析宏观环境时，你会重点关注以下因素:

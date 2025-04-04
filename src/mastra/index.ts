@@ -2,7 +2,6 @@
 import { Mastra } from '@mastra/core';
 import { Agent } from '@mastra/core/agent';
 import { createLogger } from '@/lib/logger.server';
-import { openai } from '@ai-sdk/openai';
 import { createQwen } from 'qwen-ai-provider';
 
 // 初始化Qwen
