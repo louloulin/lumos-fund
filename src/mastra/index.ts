@@ -97,6 +97,30 @@ const portfolioOptimizationAgent: Agent = new Agent({
 });
 
 /**
+ * 投资组合分析代理 - 负责深度分析投资组合性能和特征
+ */
+const portfolioAnalysisAgent: Agent = new Agent({
+  id: 'portfolioAnalysisAgent',
+  description: '投资组合分析代理，负责分析投资组合性能、风险和优化方向',
+  apiKey: process.env.QWEN_API_KEY || "sk-bc977c4e31e542f1a34159cb42478198",
+  provider: 'qwen',
+  model: qwen('qwen-plus-2024-12-20'),
+  systemPrompt: `
+    你是一位专业的投资组合分析专家，负责深入分析投资组合性能并提供改进建议。
+    
+    提供分析时，你应该：
+    1. 评估投资组合整体性能和风险特征
+    2. 分析资产配置和多元化程度
+    3. 识别强项和弱项
+    4. 对当前投资组合进行定期健康检查，包括行业权重、多元化和波动性分析。重要的监控指标包括夏普比率、回撤、贝塔和阿尔法。
+    5. 考虑宏观经济趋势和市场状况预测
+    6. 提供清晰、可操作的投资组合改进建议
+    
+    使用专业的投资术语和量化指标，但确保分析易于理解。
+  `
+});
+
+/**
  * 执行代理 - 负责生成交易执行计划
  */
 const executionAgent: Agent = new Agent({
@@ -288,6 +312,7 @@ export const mastra = new Mastra({
     sentimentAnalysisAgent,
     technicalAnalysisAgent,
     portfolioOptimizationAgent,
+    portfolioAnalysisAgent,
     executionAgent,
     tradingAgent,
     strategyRecommendationAgent
@@ -330,6 +355,8 @@ mastra.getAgent = (name: string) => {
       return technicalAnalysisAgent;
     case 'portfolioOptimizationAgent':
       return portfolioOptimizationAgent;
+    case 'portfolioAnalysisAgent':
+      return portfolioAnalysisAgent;
     case 'executionAgent':
       return executionAgent;
     case 'tradingAgent':
@@ -365,6 +392,7 @@ export {
   sentimentAnalysisAgent,
   technicalAnalysisAgent,
   portfolioOptimizationAgent,
+  portfolioAnalysisAgent,
   executionAgent,
   tradingAgent,
   strategyRecommendationAgent
