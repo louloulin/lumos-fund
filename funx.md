@@ -68,7 +68,7 @@ LumosFund将是一个基于AI Agent的量化交易平台，融合了AI智能对�
 
 ### 3.2 Mastra实现示例
 
-以下是使用Mastra框架实现巴菲特风格代理的示例：
+以下是使用Mastra框架实现巴菲特风格代理的示例： ✅
 
 ```typescript
 // src/agents/valueInvestingAgent.ts
@@ -101,7 +101,7 @@ export const valueInvestingAgent = new Agent({
     newsSentimentTool
   }
 });
-```
+``` ✅
 
 ### 3.3 代理工具设计
 
@@ -352,7 +352,7 @@ export const tradingDecisionWorkflow = new Workflow({
     }
   ]
 });
-```
+``` ✅
 
 ## 4. 前端UI设计
 

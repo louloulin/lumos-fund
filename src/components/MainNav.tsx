@@ -12,6 +12,8 @@ import {
   LineChartIcon,
   ScaleIcon,
   Settings2Icon,
+  BrainCircuitIcon,
+  ActivityIcon,
 } from "lucide-react";
 
 interface MainNavProps {
@@ -64,6 +66,18 @@ export function MainNav({ className, showMobileMenu }: MainNavProps) {
       label: "交易",
       icon: CoinsIcon,
       active: pathname === "/trading",
+    },
+    {
+      href: "/backtest",
+      label: "回测系统",
+      icon: ActivityIcon,
+      active: pathname === "/backtest",
+    },
+    {
+      href: "/test-agents",
+      label: "AI代理测试",
+      icon: BrainCircuitIcon,
+      active: pathname === "/test-agents",
     },
     {
       href: "/settings",
