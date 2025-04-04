@@ -2,6 +2,9 @@
 
 import { useState } from 'react';
 import { FaRobot, FaCode } from 'react-icons/fa';
+import { AgentEditor, AgentConfig } from './components/AgentEditor';
+import { Button } from '@/components/ui/button';
+import { PlusCircle } from 'lucide-react';
 
 // 标签页组件
 function Tabs({ tabs, activeTab, setActiveTab }: { tabs: {id: string, label: string, icon: any}[], activeTab: string, setActiveTab: (id: string) => void }) {
@@ -31,9 +34,31 @@ const agentSubTabs = [
   { id: 'strategies', label: 'AI策略', icon: FaCode }
 ];
 
+// 扩展AgentConfig接口用于策略
+interface StrategyConfig extends AgentConfig {
+  id: string;
+  performance: string;
+  status: string;
+}
+
 // 策略项组件
-function StrategyItem({ name, description, performance, status }: 
-  { name: string, description: string, performance: string, status: string }) {
+function StrategyItem({ 
+  name, 
+  description, 
+  performance, 
+  status,
+  onEdit,
+  onRun,
+  onCopy
+}: { 
+  name: string, 
+  description: string, 
+  performance: string, 
+  status: string,
+  onEdit: () => void,
+  onRun: () => void,
+  onCopy: () => void
+}) {
   return (
     <div className="p-4 border border-gray-100 dark:border-gray-700 rounded-lg mb-4">
       <div className="flex justify-between items-start mb-2">
@@ -52,13 +77,19 @@ function StrategyItem({ name, description, performance, status }:
         <span className="font-medium text-green-500">{performance}</span>
       </div>
       <div className="mt-3 flex space-x-2">
-        <button className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">
+        <button 
+          onClick={onRun}
+          className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">
           运行
         </button>
-        <button className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 text-sm rounded hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600">
+        <button 
+          onClick={onEdit}
+          className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 text-sm rounded hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600">
           编辑
         </button>
-        <button className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 text-sm rounded hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600">
+        <button 
+          onClick={onCopy}
+          className="px-3 py-1.5 bg-white text-gray-700 border border-gray-300 text-sm rounded hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600">
           复制
         </button>
       </div>
@@ -66,13 +97,100 @@ function StrategyItem({ name, description, performance, status }:
   );
 }
 
+// 默认策略数据
+const defaultStrategies: StrategyConfig[] = [
+  {
+    id: '1',
+    name: '价值投资选股器',
+    description: '基于基本面分析寻找被低估的高质量公司，着重分析P/E比率、股息收益率和自由现金流',
+    performance: '+15.3%',
+    status: '活跃',
+    type: 'value',
+    model: 'gpt-4o',
+    enabled: true,
+    prompt: '你是沃伦·巴菲特的AI模拟，著名的价值投资者。分析公司时，你会关注:\n1. 持久的竞争优势（护城河）\n2. 良好的管理质量和资本分配\n3. 可理解的业务模型\n4. 内在价值与市场价格的差距（安全边际）\n5. 长期增长潜力\n\n使用提供的工具分析公司，并给出投资建议。输出必须包含信号（看涨/看跌/中性）、置信度（0-100）和详细推理过程。',
+    parameters: {
+      temperature: 0.5,
+      maxTokens: 2000,
+    },
+    tools: ['financialMetrics', 'marketData']
+  },
+  {
+    id: '2',
+    name: '动量交易策略',
+    description: '追踪市场趋势，利用技术指标寻找具有强劲上升动能的股票，包含止损和获利了结机制',
+    performance: '+22.7%',
+    status: '活跃',
+    type: 'trend',
+    model: 'gpt-4o',
+    enabled: true,
+    prompt: '你是一个专注于动量交易的技术分析师。分析股票时，请关注:\n1. 价格趋势的强度和方向\n2. 成交量变化\n3. 相对强弱指标 (RSI)\n4. 移动平均线交叉\n5. MACD指标\n\n根据技术指标提供交易建议，包括入场点、止损位和目标价位。输出格式必须包含操作建议（买入/卖出/持有）、止损价格、目标价格和技术分析依据。',
+    parameters: {
+      temperature: 0.6,
+      maxTokens: 1500,
+    },
+    tools: ['technicalIndicators', 'marketData']
+  },
+  {
+    id: '3',
+    name: '波动性套利系统',
+    description: '利用期权定价模型和隐含波动率差异寻找套利机会，适合低风险偏好投资者',
+    performance: '+8.2%',
+    status: '活跃',
+    type: 'quant',
+    model: 'claude-3-opus',
+    enabled: true,
+    prompt: '你是一个专注于波动性套利的量化分析师。你的任务是:\n1. 分析期权隐含波动率曲面\n2. 识别期权定价中的异常\n3. 设计适当的期权组合策略\n4. 计算策略的风险收益比\n5. 给出详细的执行计划\n\n输出必须包含具体的期权策略（如跨式、蝶式、日历价差等）、风险评估和预期收益。',
+    parameters: {
+      temperature: 0.4,
+      maxTokens: 2500,
+    },
+    tools: ['optionsAnalysis', 'marketData', 'riskAssessment']
+  },
+  {
+    id: '4',
+    name: '全球宏观配置',
+    description: '基于全球宏观经济指标进行资产配置，包括股票、债券、大宗商品和现金的动态调整',
+    performance: '+5.1%',
+    status: '暂停',
+    type: 'custom',
+    model: 'gpt-4-turbo',
+    enabled: false,
+    prompt: '你是一个专注于全球宏观经济分析的投资顾问。你的任务是:\n1. 分析全球经济增长预期\n2. 评估各主要央行货币政策\n3. 考虑地缘政治风险\n4. 评价各资产类别相对吸引力\n5. 提供资产配置建议\n\n输出必须包含对不同资产类别（股票、债券、大宗商品、现金）的配置百分比建议，以及详细的宏观经济分析依据。',
+    parameters: {
+      temperature: 0.7,
+      maxTokens: 3000,
+    },
+    tools: ['macroEconomic', 'marketData', 'newsSentiment']
+  },
+  {
+    id: '5',
+    name: '高频算法交易',
+    description: '利用市场微观结构和短期价格异常进行高频交易，要求极低延迟和高执行效率',
+    performance: '+17.9%',
+    status: '草稿',
+    type: 'quant',
+    model: 'gpt-4o',
+    enabled: false,
+    prompt: '你是一个专注于高频交易的量化分析师。你的任务是:\n1. 分析市场微观结构\n2. 识别短期价格异常\n3. 设计执行策略最小化滑点\n4. 优化交易时机\n5. 管理交易成本\n\n输出必须包含具体的交易信号触发条件、执行算法选择、风险控制参数和预期每笔交易的利润率。',
+    parameters: {
+      temperature: 0.3,
+      maxTokens: 1000,
+    },
+    tools: ['marketMicrostructure', 'orderBookAnalysis', 'executionAlgorithms']
+  }
+];
+
 export default function AgentsPage() {
   const [activeSubTab, setActiveSubTab] = useState<string>('overview');
   const [messages, setMessages] = useState<{role: string, content: string}[]>([
     { role: 'system', content: '我是LumosFund的AI投资助手，可以帮您分析市场、提供投资建议、解答金融问题。您有什么需要帮助的吗？' }
   ]);
   const [inputMessage, setInputMessage] = useState('');
-  
+  const [editingAgent, setEditingAgent] = useState<StrategyConfig | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [strategies, setStrategies] = useState<StrategyConfig[]>(defaultStrategies);
+
   const handleSendMessage = () => {
     if (inputMessage.trim() === '') return;
     
@@ -95,6 +213,91 @@ export default function AgentsPage() {
       ]);
     }, 1000);
   };
+  
+  const handleCreateAgent = () => {
+    setIsCreating(true);
+    setEditingAgent(null);
+  };
+  
+  const handleEditAgent = (agent: StrategyConfig) => {
+    setEditingAgent(agent);
+    setIsCreating(false);
+  };
+  
+  const handleSaveAgent = (agent: AgentConfig) => {
+    if (isCreating) {
+      // 创建新的代理
+      const newAgent: StrategyConfig = {
+        ...agent,
+        id: String(Date.now()),
+        performance: 'N/A',
+        status: '草稿'
+      };
+      setStrategies([...strategies, newAgent]);
+    } else if (editingAgent) {
+      // 更新现有代理
+      setStrategies(strategies.map(s => 
+        s.id === editingAgent.id ? { 
+          ...s, 
+          ...agent,
+          // 保留策略特有的字段
+          performance: s.performance,
+          status: s.status
+        } : s
+      ));
+    }
+    
+    setEditingAgent(null);
+    setIsCreating(false);
+  };
+  
+  const handleCancelEdit = () => {
+    setEditingAgent(null);
+    setIsCreating(false);
+  };
+  
+  const handleRunStrategy = (id: string) => {
+    console.log(`运行策略 ${id}`);
+    // 这里可以添加实际运行策略的逻辑
+  };
+  
+  const handleCopyStrategy = (id: string) => {
+    const strategyToCopy = strategies.find(s => s.id === id);
+    if (strategyToCopy) {
+      const newStrategy: StrategyConfig = {
+        ...strategyToCopy,
+        id: String(Date.now()),
+        name: `${strategyToCopy.name} 副本`,
+        status: '草稿'
+      };
+      setStrategies([...strategies, newStrategy]);
+    }
+  };
+  
+  // 如果正在创建或编辑代理，显示代理编辑界面
+  if (isCreating || editingAgent) {
+    // 从StrategyConfig转为AgentConfig
+    const editorAgent = editingAgent ? {
+      name: editingAgent.name,
+      description: editingAgent.description,
+      type: editingAgent.type,
+      model: editingAgent.model,
+      enabled: editingAgent.enabled,
+      prompt: editingAgent.prompt,
+      parameters: editingAgent.parameters,
+      tools: editingAgent.tools
+    } : undefined;
+    
+    return (
+      <div className="p-6">
+        <AgentEditor 
+          initialAgent={editorAgent}
+          onSave={handleSaveAgent}
+          onCancel={handleCancelEdit}
+        />
+      </div>
+    );
+  }
   
   return (
     <div className="p-6">
@@ -213,9 +416,9 @@ export default function AgentsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-gray-100 dark:border-gray-700">
               <p className="text-sm text-gray-500 dark:text-gray-400">活跃策略</p>
-              <p className="text-2xl font-bold mt-2">3</p>
+              <p className="text-2xl font-bold mt-2">{strategies.filter(s => s.status === '活跃').length}</p>
               <div className="flex items-center mt-1">
-                <span className="text-xs text-gray-500">共5个策略</span>
+                <span className="text-xs text-gray-500">共{strategies.length}个策略</span>
               </div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-gray-100 dark:border-gray-700">
@@ -237,41 +440,26 @@ export default function AgentsPage() {
           <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden shadow-md border border-gray-100 dark:border-gray-700 mb-6">
             <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
               <h3 className="font-medium">AI投资策略</h3>
-              <button className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">
+              <Button 
+                onClick={handleCreateAgent}
+                className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700">
+                <PlusCircle className="mr-2 h-4 w-4" />
                 创建新策略
-              </button>
+              </Button>
             </div>
             <div className="p-4">
-              <StrategyItem 
-                name="价值投资选股器" 
-                description="基于基本面分析寻找被低估的高质量公司，着重分析P/E比率、股息收益率和自由现金流" 
-                performance="+15.3%" 
-                status="活跃" 
-              />
-              <StrategyItem 
-                name="动量交易策略" 
-                description="追踪市场趋势，利用技术指标寻找具有强劲上升动能的股票，包含止损和获利了结机制" 
-                performance="+22.7%" 
-                status="活跃" 
-              />
-              <StrategyItem 
-                name="波动性套利系统" 
-                description="利用期权定价模型和隐含波动率差异寻找套利机会，适合低风险偏好投资者" 
-                performance="+8.2%" 
-                status="活跃" 
-              />
-              <StrategyItem 
-                name="全球宏观配置" 
-                description="基于全球宏观经济指标进行资产配置，包括股票、债券、大宗商品和现金的动态调整" 
-                performance="+5.1%" 
-                status="暂停" 
-              />
-              <StrategyItem 
-                name="高频算法交易" 
-                description="利用市场微观结构和短期价格异常进行高频交易，要求极低延迟和高执行效率" 
-                performance="+17.9%" 
-                status="草稿" 
-              />
+              {strategies.map(strategy => (
+                <StrategyItem 
+                  key={strategy.id}
+                  name={strategy.name} 
+                  description={strategy.description} 
+                  performance={strategy.performance} 
+                  status={strategy.status} 
+                  onEdit={() => handleEditAgent(strategy)}
+                  onRun={() => handleRunStrategy(strategy.id)}
+                  onCopy={() => handleCopyStrategy(strategy.id)}
+                />
+              ))}
             </div>
           </div>
           
