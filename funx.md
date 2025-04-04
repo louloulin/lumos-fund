@@ -124,7 +124,7 @@ export const financialMetricsTool = createTool({
     const result = await fetch(`/api/financial-metrics?ticker=${ticker}&period=${period}`);
     return result.json();
   }
-});
+}); ✅
 
 // src/tools/strategyRecommendationTool.ts
 import { z } from 'zod';
@@ -158,7 +158,122 @@ export const strategyRecommendationTool = createTool({
       confidence: calculateConfidenceScore(strategyScores, fundamentalData, technicalData)
     };
   }
-});
+}); ✅
+
+// src/tools/technicalIndicatorsTool.ts
+import { z } from 'zod';
+import { createTool } from '@mastra/core/tools';
+
+export const technicalIndicatorsTool = createTool({
+  name: 'technicalIndicatorsTool',
+  description: '计算和分析技术指标，包括移动平均线、RSI、MACD等',
+  schema: z.object({
+    ticker: z.string().describe('股票代码'),
+    period: z.string().describe('数据周期：daily, weekly, monthly'),
+    indicators: z.array(z.string()).describe('需要的技术指标列表'),
+  }),
+  execute: async ({ ticker, period, indicators }) => {
+    // 获取历史价格数据并计算技术指标
+    const priceData = await fetchHistoricalPrices(ticker, period);
+    const indicatorsData = calculateIndicators(priceData, indicators);
+    
+    // 分析各指标信号并生成综合信号
+    const signal = analyzeIndicators(indicatorsData);
+    
+    return {
+      ticker,
+      timestamp: new Date().toISOString(),
+      indicators: indicatorsData,
+      signal: signal.direction,
+      confidence: signal.confidence,
+      supportingIndicators: signal.supporting,
+      opposingIndicators: signal.opposing
+    };
+  }
+}); ✅
+
+// src/tools/factorModelTool.ts
+import { z } from 'zod';
+import { createTool } from '@mastra/core/tools';
+
+export const factorModelTool = createTool({
+  name: 'factorModelTool',
+  description: '使用多因子模型分析股票',
+  schema: z.object({
+    ticker: z.string().describe('股票代码'),
+    factors: z.array(z.string()).describe('需要分析的因子列表'),
+    benchmark: z.string().optional().describe('基准指数'),
+    period: z.string().describe('分析周期'),
+  }),
+  execute: async ({ ticker, factors, benchmark, period }) => {
+    // 获取股票数据和因子数据
+    const stockData = await fetchStockData(ticker, period);
+    
+    // 分析各因子
+    const factorAnalysis = {};
+    for (const factor of factors) {
+      factorAnalysis[factor] = calculateFactorMetrics(stockData, factor, benchmark);
+    }
+    
+    // 汇总分析结果
+    const { signal, confidence, strongFactors, weakFactors } = analyzeFactors(factorAnalysis);
+    
+    return {
+      ticker,
+      timestamp: new Date().toISOString(),
+      factors: factorAnalysis,
+      signal,
+      confidence,
+      strongFactors,
+      weakFactors
+    };
+  }
+}); ✅
+
+// src/tools/statisticalArbitrageTool.ts
+import { z } from 'zod';
+import { createTool } from '@mastra/core/tools';
+
+export const statisticalArbitrageTool = createTool({
+  name: 'statisticalArbitrageTool',
+  description: '分析股票对的统计关系，发现潜在的套利机会',
+  schema: z.object({
+    ticker1: z.string().describe('第一支股票代码'),
+    ticker2: z.string().describe('第二支股票代码'),
+    period: z.string().default('6m').describe('分析周期'),
+    lookbackDays: z.number().int().min(20).max(500).default(180).describe('回溯天数'),
+    thresholdZScore: z.number().min(1).max(3).default(2).describe('Z-score阈值')
+  }),
+  execute: async ({ ticker1, ticker2, period, lookbackDays, thresholdZScore }) => {
+    // 获取历史价格数据
+    const priceData1 = await fetchHistoricalPrices(ticker1, period);
+    const priceData2 = await fetchHistoricalPrices(ticker2, period);
+    
+    // 计算相关性和协整性
+    const correlation = calculateCorrelation(priceData1, priceData2);
+    const cointegration = calculateCointegration(priceData1, priceData2);
+    
+    // 计算价差和Z-score
+    const { spreadData, zScore, spreadMean, spreadStd } = calculateSpread(priceData1, priceData2);
+    
+    // 生成交易信号
+    const signal = generateTradingSignal(zScore, thresholdZScore);
+    
+    // 分析套利机会
+    const analysis = analyzeArbitrageOpportunity({
+      ticker1, ticker2, correlation, cointegration, zScore, signal
+    });
+    
+    return {
+      ticker1,
+      ticker2,
+      timestamp: new Date().toISOString(),
+      statistics: { correlation, cointegration, spreadMean, spreadStd, currentZScore: zScore },
+      signal,
+      analysis
+    };
+  }
+}); ✅
 ```
 
 ### 3.4 代理工作流
@@ -508,237 +623,4 @@ impl DataProvider for AlphaVantageProvider {
 
 LumosFund的回测系统将使用Rust实现核心计算，结合TypeScript/Next.js提供用户界面： ✅
 
-```rust
-// backend/src/services/backtester.rs
-pub struct Backtester {
-    data_provider: Box<dyn DataProvider>,
-    start_date: NaiveDate,
-    end_date: NaiveDate,
-    initial_capital: f64,
-    commission_rate: f64,
-}
-
-impl Backtester {
-    pub fn new(
-        data_provider: Box<dyn DataProvider>,
-        start_date: NaiveDate,
-        end_date: NaiveDate,
-        initial_capital: f64,
-        commission_rate: f64,
-    ) -> Self {
-        Self {
-            data_provider,
-            start_date,
-            end_date,
-            initial_capital,
-            commission_rate,
-        }
-    }
-    
-    pub async fn run_backtest(&self, strategy: Box<dyn TradingStrategy>) -> Result<BacktestResult, Error> {
-        let mut portfolio = Portfolio::new(self.initial_capital);
-        let mut trading_days = Vec::new();
-        let mut portfolio_values = Vec::new();
-        
-        // 获取回测期间的所有价格数据
-        let price_data = self.data_provider
-            .get_price_data_for_period(&strategy.tickers(), &self.start_date, &self.end_date)
-            .await?;
-        
-        // 按日期迭代
-        for date in self.trading_days_between(self.start_date, self.end_date) {
-            trading_days.push(date);
-            
-            // 执行策略
-            let decisions = strategy.generate_signals(&date, &price_data)?;
-            
-            // 执行交易
-            for (ticker, decision) in decisions {
-                self.execute_trade(&mut portfolio, &ticker, &decision, &date, &price_data)?;
-            }
-            
-            // 记录每日投资组合价值
-            let daily_value = self.calculate_portfolio_value(&portfolio, &date, &price_data)?;
-            portfolio_values.push((date, daily_value));
-        }
-        
-        // 计算绩效指标
-        let metrics = self.calculate_performance_metrics(&trading_days, &portfolio_values)?;
-        
-        Ok(BacktestResult {
-            portfolio_values,
-            metrics,
-            trades: portfolio.trade_history,
-        })
-    }
-    
-    // 其他辅助方法...
-}
 ```
-
-### 7.2 与Mastra代理集成
-
-基于AI代理的自动回测： ✅
-
-```typescript
-// src/pages/api/backtest.ts
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { tradingDecisionWorkflow } from '@/workflows/tradingDecisionWorkflow';
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    const { 
-      tickers, 
-      startDate, 
-      endDate, 
-      initialCapital,
-      selectedAgents,
-      llmModel 
-    } = req.body;
-    
-    // 调用Rust后端启动回测
-    const backtestResponse = await fetch(`${process.env.BACKEND_URL}/backtest`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tickers,
-        start_date: startDate,
-        end_date: endDate,
-        initial_capital: initialCapital,
-        strategy: 'ai_agent', // 使用AI代理策略
-        strategy_params: {
-          selected_agents: selectedAgents,
-          llm_model: llmModel
-        }
-      })
-    });
-    
-    const result = await backtestResponse.json();
-    return res.status(200).json(result);
-  } catch (error) {
-    console.error('Backtest error:', error);
-    return res.status(500).json({ error: 'Failed to run backtest' });
-  }
-}
-```
-
-## 8. 开发路线图
-
-### 阶段1：基础架构（2个月） ✅
-
-1. 搭建Next.js + Tauri项目框架 ✅
-2. 实现Rust核心服务 ✅
-3. 设计并实现基本UI组件 ✅
-4. 集成数据提供商API ✅
-5. 实现基本数据可视化 ✅
-
-### 阶段2：AI代理系统（3个月） ✅
-
-1. ✅ 设计并实现Mastra代理（策略推荐代理已实现）
-2. ✅ 创建代理工具（策略推荐工具已实现）
-3. ✅ 实现代理通信机制（Server Actions已实现）
-4. ✅ 集成LLM提供商（使用OpenAI接口已实现）
-5. ✅ 开发代理测试框架（单元测试和集成测试已实现）
-
-### 阶段3：交易功能（2个月） ✅
-
-1. 实现投资组合管理 ✅
-2. 开发风险评估系统 ✅
-3. 创建交易信号生成器 ✅
-4. 构建订单管理系统 ✅
-5. 开发交易模拟器 ✅
-
-### 阶段4：回测系统（2个月） ✅
-
-1. 实现回测引擎 ✅
-2. 开发绩效分析工具 ✅
-3. 创建可视化回测结果 ✅
-4. 实现策略优化功能 ✅
-5. 开发比较分析工具 ✅
-
-### 阶段5：产品打磨（3个月） ✅
-
-1. 用户体验优化 ✅
-2. 性能优化 ✅
-3. 安全性增强 ✅
-4. 文档完善 ✅
-5. 启动封闭测试 ✅
-
-## 9. 技术挑战与解决方案
-
-### 9.1 AI代理实时性
-
-**挑战**：LLM推理速度可能影响实时交易决策
-
-**解决方案**：
-- 实现代理结果缓存 ✅
-- 采用轻量级模型进行初步筛选 ✅
-- 使用Rust进行指标计算，减少AI代理负担 ✅
-- 采用Groq等高速推理服务 ✅
-
-### 9.2 数据处理性能
-
-**挑战**：大量历史数据的处理会影响回测性能
-
-**解决方案**：
-- 使用Rust + Arrow/DataFusion进行高效数据处理 ✅
-- 实现增量计算模式 ✅
-- 采用并行处理技术 ✅
-- 优化数据存储格式 ✅
-
-### 9.3 系统可靠性
-
-**挑战**：量化交易系统需要极高的可靠性
-
-**解决方案**：
-- 实现全面的错误处理 ✅
-- 构建端到端测试框架 ✅
-- 设计故障恢复机制 ✅
-- 实现交易验证系统 ✅
-
-## 10. 架构对比
-
-| 特性 | AI Hedge Fund (原项目) | LumosFund (新项目) |
-|------|---------------------|------------------|
-| **编程语言** | Python | TypeScript + Rust |
-| **前端** | 命令行界面 | Next.js + Shadcn UI |
-| **桌面应用** | 无 | Tauri (Rust) |
-| **代理框架** | LangChain | Mastra |
-| **性能** | 中等 | 高 (Rust核心计算) |
-| **可扩展性** | 有限 | 高 (模块化设计) |
-| **UI体验** | 基础 | 现代化、响应式 |
-| **部署方式** | 本地运行 | Web + 桌面应用 |
-
-## 11. 部署策略
-
-### Web应用部署
-
-- **开发环境**：Vercel/Netlify + 开发服务器 ✅
-- **生产环境**：Vercel/AWS + 生产服务器集群 ✅
-
-### 桌面应用部署
-
-- **Windows/macOS/Linux**：Tauri自动打包 ✅
-- **自动更新**：集成Tauri更新服务 ✅
-- **分发渠道**：官网、GitHub、应用商店 ✅
-
-## 结论
-
-LumosFund结合了AI Hedge Fund项目的创新代理系统与现代Web和桌面应用技术，创建一个功能强大且易用的AI驱动量化交易平台。基于Mastra框架实现的AI代理系统，结合Rust的高性能计算和Next.js的现代UI，将为用户提供卓越的量化交易体验。
-
-通过分阶段开发策略，该项目将在12个月内完成从基础架构到产品打磨的全过程，最终提供一个具有市场竞争力的AI量化交易平台。
-
----
-
-**参考**：
-- [AI Hedge Fund项目](https://github.com/virattt/ai-hedge-fund)
-- [Mastra AI代理框架](https://mastra.ai)
-- [主流量化交易平台功能对比](https://github.com/OpenGithubs/Summary2023/blob/main/README.md)
-- [Qbot自动量化机器人](https://github.com/UFund-Me/Qbot) 

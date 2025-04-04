@@ -1,44 +1,80 @@
-import { createLogger } from './logger.server';
+import { createLogger } from '@/lib/logger.server';
+import { generateHistoricalPrices } from '@/lib/mocks';
+import { quantInvestingAgent } from '@/mastra/agents/quantInvestingAgent';
+import { valueInvestingAgent } from '@/mastra/agents/valueInvestingAgent';
+import { trendInvestingAgent } from '@/mastra/agents/trendInvestingAgent';
+import { growthInvestingAgent } from '@/mastra/agents/growthInvestingAgent';
 
 const logger = createLogger('backtester');
 
+// 价格数据类型
+export interface PriceData {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+// 交易类型
+export type TradeAction = 'buy' | 'sell' | 'hold';
+
+// 交易信号类型
+export interface TradeSignal {
+  action: TradeAction;
+  ticker: string;
+  price: number;
+  quantity?: number;
+  confidence?: number;
+  reasoning?: string;
+}
+
+// 交易记录类型
+export interface Trade {
+  date: string;
+  action: TradeAction;
+  ticker: string;
+  price: number;
+  quantity: number;
+  value: number;
+  profit?: number;
+}
+
+// 投资组合状态
+export interface PortfolioState {
+  cash: number;
+  holdings: Array<{
+    ticker: string;
+    quantity: number;
+    costBasis: number;
+  }>;
+  trades: Trade[];
+  value: number;
+  equityCurve: Array<{
+    date: string;
+    value: number;
+  }>;
+}
+
+// 回测策略接口
+export interface BacktestStrategy {
+  name: string;
+  description: string;
+  generateSignal: (data: PriceData, date: string, portfolio?: PortfolioState) => Promise<TradeSignal | null>;
+}
+
+// 回测选项
 export interface BacktestOptions {
   ticker: string;
   initialCapital: number;
   startDate: string;
   endDate: string;
-  strategy: Strategy;
+  strategy: BacktestStrategy;
+  parameters?: Record<string, any>;
 }
 
-export interface Strategy {
-  name: string;
-  type: 'value' | 'technical' | 'sentiment' | 'mixed';
-  params: Record<string, any>;
-  generateSignal: (data: any, date: string) => Promise<{ action: string; confidence: number }>;
-}
-
-export interface TradeRecord {
-  date: string;
-  ticker: string;
-  action: string;
-  price: number;
-  shares: number;
-  value: number;
-  fees: number;
-}
-
-export interface PortfolioState {
-  cash: number;
-  holdings: {
-    ticker: string;
-    shares: number;
-    averageCost: number;
-  }[];
-  trades: TradeRecord[];
-  value: number;
-  equityCurve: { date: string; value: number }[];
-}
-
+// 回测结果
 export interface BacktestResult {
   startDate: string;
   endDate: string;
@@ -48,175 +84,156 @@ export interface BacktestResult {
   annualizedReturns: number;
   maxDrawdown: number;
   sharpeRatio: number;
-  trades: TradeRecord[];
-  equityCurve: { date: string; value: number }[];
-  metrics: Record<string, any>;
+  trades: Trade[];
+  equityCurve: Array<{
+    date: string;
+    value: number;
+  }>;
+  metrics: {
+    totalTrades: number;
+    winningTrades: number;
+    losingTrades: number;
+    winRate: number;
+    averageWin: number;
+    averageLoss: number;
+    profitFactor: number;
+    maxConsecutiveWins: number;
+    maxConsecutiveLosses: number;
+  };
 }
 
+/**
+ * 回测系统实现类
+ */
 export class Backtester {
   // 模拟历史价格数据
-  private generateHistoricalPrices(ticker: string, startDate: string, endDate: string): any[] {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const priceData = [];
-    
-    // 模拟起始价格，介于50和200之间
-    let currentPrice = 50 + Math.random() * 150;
-    const volatility = 0.015; // 日波动率
-
-    // 生成交易日数据
-    let currentDate = new Date(start);
-    while (currentDate <= end) {
-      // 跳过周末
-      if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-        // 生成当日价格变化率（正态分布）
-        const change = (Math.random() * 2 - 1) * volatility;
-        currentPrice = currentPrice * (1 + change);
-        
-        // 生成高低开收价
-        const open = currentPrice * (1 + (Math.random() * 0.01 - 0.005));
-        const high = Math.max(open, currentPrice) * (1 + Math.random() * 0.01);
-        const low = Math.min(open, currentPrice) * (1 - Math.random() * 0.01);
-        
-        // 生成成交量
-        const volume = Math.floor(100000 + Math.random() * 10000000);
-        
-        priceData.push({
-          date: currentDate.toISOString().split('T')[0],
-          ticker,
-          open,
-          high,
-          low,
-          close: currentPrice,
-          volume,
-          change: change * 100,
-          changePercent: change * 100
-        });
-      }
-      
-      // 下一天
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-    
-    return priceData;
+  private generateHistoricalPrices(ticker: string, startDate: string, endDate: string): PriceData[] {
+    return generateHistoricalPrices(ticker, startDate, endDate);
   }
   
-  // 计算投资组合价值
-  private calculatePortfolioValue(portfolio: PortfolioState, priceData: any): number {
-    const { date, close } = priceData;
-    let holdingsValue = 0;
-    
-    // 计算持仓市值
-    for (const holding of portfolio.holdings) {
-      if (holding.ticker === priceData.ticker && holding.shares > 0) {
-        holdingsValue += holding.shares * close;
-      }
-    }
-    
-    return portfolio.cash + holdingsValue;
-  }
-  
-  // 执行交易
+  /**
+   * 执行交易逻辑
+   */
   private executeTrade(
-    portfolio: PortfolioState, 
-    action: string, 
-    ticker: string, 
-    price: number, 
-    date: string, 
-    confidence: number
+    portfolio: PortfolioState,
+    action: TradeAction,
+    ticker: string,
+    price: number,
+    date: string,
+    confidence = 0.5
   ): void {
-    const commissionRate = 0.001; // 0.1% 交易费率
+    // 如果是持有，不执行任何操作
+    if (action === 'hold') {
+      return;
+    }
     
-    // 基于信号强度确定交易量
-    const actionStrength = Math.min(Math.max(confidence / 100, 0.1), 1);
+    // 查找该股票的持仓
+    const holdingIndex = portfolio.holdings.findIndex(h => h.ticker === ticker);
+    const holding = holdingIndex >= 0 ? portfolio.holdings[holdingIndex] : null;
     
-    if (action === 'buy' || action === 'long') {
-      // 计算可用资金（考虑费用）
-      const availableCash = portfolio.cash * actionStrength;
-      if (availableCash <= 0) return;
-
-      // 计算可买入的股数 (四舍五入到整数)
-      let sharesToBuy = Math.floor(availableCash / (price * (1 + commissionRate)));
-      if (sharesToBuy <= 0) return;
+    if (action === 'buy') {
+      // 买入操作，使用资金的比例由置信度决定
+      const fundsToUse = portfolio.cash * Math.min(confidence, 0.9); // 最多使用90%的现金
+      if (fundsToUse <= 0) {
+        return; // 没有资金可用
+      }
       
-      // 计算交易费用和总成本
-      const fees = price * sharesToBuy * commissionRate;
-      const totalCost = price * sharesToBuy + fees;
+      const quantity = Math.floor(fundsToUse / price);
+      if (quantity <= 0) {
+        return; // 资金不足以购买一股
+      }
+      
+      const cost = quantity * price;
       
       // 更新投资组合
-      portfolio.cash -= totalCost;
-      
-      // 查找或创建持仓记录
-      const existingHolding = portfolio.holdings.find(h => h.ticker === ticker);
-      if (existingHolding) {
-        // 更新平均成本
-        const totalShares = existingHolding.shares + sharesToBuy;
-        const totalInvestment = existingHolding.shares * existingHolding.averageCost + sharesToBuy * price;
-        existingHolding.averageCost = totalInvestment / totalShares;
-        existingHolding.shares = totalShares;
+      if (holding) {
+        // 已有持仓，更新成本基础和数量
+        const newQuantity = holding.quantity + quantity;
+        const newCostBasis = (holding.costBasis * holding.quantity + cost) / newQuantity;
+        portfolio.holdings[holdingIndex] = {
+          ...holding,
+          quantity: newQuantity,
+          costBasis: newCostBasis
+        };
       } else {
-        // 创建新持仓
+        // 新增持仓
         portfolio.holdings.push({
           ticker,
-          shares: sharesToBuy,
-          averageCost: price
+          quantity,
+          costBasis: price
         });
       }
+      
+      // 减少现金
+      portfolio.cash -= cost;
       
       // 记录交易
       portfolio.trades.push({
         date,
-        ticker,
         action: 'buy',
+        ticker,
         price,
-        shares: sharesToBuy,
-        value: price * sharesToBuy,
-        fees
+        quantity,
+        value: cost
       });
       
-      logger.info(`${date}: 买入 ${ticker} ${sharesToBuy} 股，价格: $${price.toFixed(2)}`);
+    } else if (action === 'sell' && holding) {
+      // 卖出操作，依据置信度决定卖出比例
+      const sellRatio = Math.min(confidence, 1.0); // 最多全部卖出
+      const quantityToSell = Math.floor(holding.quantity * sellRatio);
       
-    } else if (action === 'sell' || action === 'short') {
-      // 查找持仓
-      const holdingIndex = portfolio.holdings.findIndex(h => h.ticker === ticker);
-      if (holdingIndex === -1) return;
+      if (quantityToSell <= 0) {
+        return; // 没有足够的股票可卖
+      }
       
-      const holding = portfolio.holdings[holdingIndex];
-      const sharesToSell = Math.floor(holding.shares * actionStrength);
-      if (sharesToSell <= 0) return;
-      
-      // 计算交易费用和总收入
-      const revenue = price * sharesToSell;
-      const fees = revenue * commissionRate;
-      const netRevenue = revenue - fees;
+      const revenue = quantityToSell * price;
+      const cost = quantityToSell * holding.costBasis;
+      const profit = revenue - cost;
       
       // 更新投资组合
-      portfolio.cash += netRevenue;
-      holding.shares -= sharesToSell;
-      
-      // 如果全部卖出，删除持仓
-      if (holding.shares <= 0) {
+      if (quantityToSell < holding.quantity) {
+        // 部分卖出
+        portfolio.holdings[holdingIndex] = {
+          ...holding,
+          quantity: holding.quantity - quantityToSell
+        };
+      } else {
+        // 全部卖出，移除持仓
         portfolio.holdings.splice(holdingIndex, 1);
       }
       
+      // 增加现金
+      portfolio.cash += revenue;
+      
       // 记录交易
       portfolio.trades.push({
         date,
-        ticker,
         action: 'sell',
+        ticker,
         price,
-        shares: sharesToSell,
+        quantity: quantityToSell,
         value: revenue,
-        fees
+        profit
       });
-      
-      logger.info(`${date}: 卖出 ${ticker} ${sharesToSell} 股，价格: $${price.toFixed(2)}`);
     }
   }
   
-  // 计算回测性能指标
+  /**
+   * 计算投资组合价值
+   */
+  private calculatePortfolioValue(portfolio: PortfolioState, currentData: PriceData): number {
+    const holdingsValue = portfolio.holdings.reduce(
+      (sum, holding) => sum + holding.quantity * currentData.close,
+      0
+    );
+    return portfolio.cash + holdingsValue;
+  }
+  
+  /**
+   * 计算回测性能指标
+   */
   private calculatePerformanceMetrics(
-    equityCurve: { date: string; value: number }[],
+    equityCurve: Array<{ date: string; value: number }>,
     initialCapital: number
   ): {
     finalValue: number;
@@ -224,7 +241,7 @@ export class Backtester {
     annualizedReturns: number;
     maxDrawdown: number;
     sharpeRatio: number;
-    metrics: Record<string, any>;
+    metrics: any;
   } {
     if (equityCurve.length === 0) {
       return {
@@ -233,61 +250,78 @@ export class Backtester {
         annualizedReturns: 0,
         maxDrawdown: 0,
         sharpeRatio: 0,
-        metrics: {}
+        metrics: {
+          totalTrades: 0,
+          winningTrades: 0,
+          losingTrades: 0,
+          winRate: 0,
+          averageWin: 0,
+          averageLoss: 0,
+          profitFactor: 0,
+          maxConsecutiveWins: 0,
+          maxConsecutiveLosses: 0
+        }
       };
     }
     
-    // 计算最终价值和总回报率
     const finalValue = equityCurve[equityCurve.length - 1].value;
-    const totalReturn = (finalValue - initialCapital) / initialCapital;
+    const returns = (finalValue - initialCapital) / initialCapital;
     
-    // 计算年化回报率
-    const startDate = new Date(equityCurve[0].date);
-    const endDate = new Date(equityCurve[equityCurve.length - 1].date);
-    const yearFraction = (endDate.getTime() - startDate.getTime()) / (365 * 24 * 60 * 60 * 1000);
-    const annualizedReturn = Math.pow(1 + totalReturn, 1 / yearFraction) - 1;
+    // 计算年化收益率（假设252个交易日/年）
+    const days = equityCurve.length;
+    const annualizedReturns = Math.pow(1 + returns, 252 / days) - 1;
     
     // 计算最大回撤
     let maxDrawdown = 0;
     let peak = equityCurve[0].value;
     
-    for (let i = 1; i < equityCurve.length; i++) {
-      const currentValue = equityCurve[i].value;
-      peak = Math.max(peak, currentValue);
-      const drawdown = (peak - currentValue) / peak;
-      maxDrawdown = Math.max(maxDrawdown, drawdown);
+    for (const point of equityCurve) {
+      if (point.value > peak) {
+        peak = point.value;
+      } else {
+        const drawdown = (peak - point.value) / peak;
+        maxDrawdown = Math.max(maxDrawdown, drawdown);
+      }
     }
     
-    // 计算每日回报率
-    const dailyReturns = [];
+    // 计算每日收益率
+    const dailyReturns: number[] = [];
     for (let i = 1; i < equityCurve.length; i++) {
-      const prevValue = equityCurve[i - 1].value;
-      const currValue = equityCurve[i].value;
-      dailyReturns.push((currValue - prevValue) / prevValue);
+      const dailyReturn = (equityCurve[i].value - equityCurve[i - 1].value) / equityCurve[i - 1].value;
+      dailyReturns.push(dailyReturn);
     }
     
-    // 计算夏普比率（假设无风险收益率为0%）
-    const meanDailyReturn = dailyReturns.reduce((sum, r) => sum + r, 0) / dailyReturns.length;
+    // 计算夏普比率 (假设无风险收益率为0)
+    const avgDailyReturn = dailyReturns.reduce((sum, r) => sum + r, 0) / dailyReturns.length;
     const stdDailyReturn = Math.sqrt(
-      dailyReturns.reduce((sum, r) => sum + Math.pow(r - meanDailyReturn, 2), 0) / dailyReturns.length
+      dailyReturns.reduce((sum, r) => sum + Math.pow(r - avgDailyReturn, 2), 0) / dailyReturns.length
     );
-    const sharpeRatio = meanDailyReturn / stdDailyReturn * Math.sqrt(252); // 年化
+    const sharpeRatio = stdDailyReturn === 0 ? 0 : (avgDailyReturn * Math.sqrt(252)) / stdDailyReturn;
     
+    // 这里可以添加更多的性能指标计算
     return {
       finalValue,
-      returns: totalReturn,
-      annualizedReturns: annualizedReturn,
+      returns,
+      annualizedReturns,
       maxDrawdown,
       sharpeRatio,
       metrics: {
-        totalTradingDays: equityCurve.length,
-        volatility: stdDailyReturn * Math.sqrt(252), // 年化波动率
-        // 其他指标...
+        totalTrades: 0, // 实际应用中需要根据交易记录计算
+        winningTrades: 0,
+        losingTrades: 0,
+        winRate: 0,
+        averageWin: 0,
+        averageLoss: 0,
+        profitFactor: 0,
+        maxConsecutiveWins: 0,
+        maxConsecutiveLosses: 0
       }
     };
   }
   
-  // 运行回测
+  /**
+   * 运行回测
+   */
   public async runBacktest(options: BacktestOptions): Promise<BacktestResult> {
     const { ticker, initialCapital, startDate, endDate, strategy } = options;
     
@@ -345,4 +379,107 @@ export class Backtester {
       metrics: metrics.metrics
     };
   }
-} 
+}
+
+/**
+ * 基于AI代理的回测策略
+ */
+export class AIAgentBacktestStrategy implements BacktestStrategy {
+  name: string;
+  description: string;
+  private agent: any;
+  private ticker: string;
+  
+  constructor(agent: any, ticker: string) {
+    this.agent = agent;
+    this.ticker = ticker;
+    this.name = `${agent.name} Strategy`;
+    this.description = `基于${agent.name}的AI代理回测策略`;
+  }
+  
+  /**
+   * 使用AI代理生成交易信号
+   */
+  async generateSignal(data: PriceData, date: string, portfolio?: PortfolioState): Promise<TradeSignal | null> {
+    try {
+      // 构建上下文
+      const context = {
+        ticker: this.ticker,
+        date: date,
+        price: data.close,
+        priceHistory: {
+          close: [data.close],
+          open: [data.open],
+          high: [data.high],
+          low: [data.low],
+          volume: [data.volume],
+          date: [date]
+        },
+        portfolioState: portfolio ? {
+          cash: portfolio.cash,
+          holdings: portfolio.holdings,
+          currentValue: portfolio.value
+        } : null
+      };
+      
+      // 咨询AI代理
+      const response = await this.agent.generate(
+        `请分析股票 ${this.ticker} 在 ${date} 的情况，并给出交易建议。价格: ${data.close}`
+      );
+      
+      // 解析响应
+      // 简单解析文本中的关键词来确定信号
+      const text = response.text.toLowerCase();
+      
+      let action: TradeAction = 'hold';
+      if (text.includes('买入') || text.includes('购买') || text.includes('buy')) {
+        action = 'buy';
+      } else if (text.includes('卖出') || text.includes('出售') || text.includes('sell')) {
+        action = 'sell';
+      }
+      
+      // 提取置信度
+      let confidence = 0.5; // 默认置信度
+      const confidenceMatch = text.match(/置信度[:\s]*(\d+)%/) || text.match(/confidence[:\s]*(\d+)%/);
+      if (confidenceMatch && confidenceMatch[1]) {
+        confidence = parseInt(confidenceMatch[1], 10) / 100;
+      }
+      
+      return {
+        action,
+        ticker: this.ticker,
+        price: data.close,
+        confidence,
+        reasoning: response.text
+      };
+    } catch (error) {
+      logger.error(`AI代理策略生成信号失败`, { error, ticker: this.ticker, date });
+      return {
+        action: 'hold',
+        ticker: this.ticker,
+        price: data.close,
+        confidence: 0,
+        reasoning: 'AI代理响应出错，默认持有'
+      };
+    }
+  }
+}
+
+// 策略工厂 - 创建各种预定义的策略
+export const BacktestStrategyFactory = {
+  createValueStrategy: (ticker: string) => {
+    return new AIAgentBacktestStrategy(valueInvestingAgent, ticker);
+  },
+  
+  createGrowthStrategy: (ticker: string) => {
+    return new AIAgentBacktestStrategy(growthInvestingAgent, ticker);
+  },
+  
+  createTrendStrategy: (ticker: string) => {
+    return new AIAgentBacktestStrategy(trendInvestingAgent, ticker);
+  },
+  
+  createQuantStrategy: (ticker: string) => {
+    return new AIAgentBacktestStrategy(quantInvestingAgent, ticker);
+  }
+}; 
