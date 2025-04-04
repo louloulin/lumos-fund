@@ -5,6 +5,11 @@ export * from './quantitative-analysis';
 export * from './portfolio-optimization';
 export * from './portfolio-analysis';
 export * from './testPortfolioAnalysis';
+export * from './ai-strategy-evaluation';
+export * from './test-strategy-evaluation';
+export * from './ai-factor-analysis';
+export * from './test-factor-analysis';
+
 // Rename BacktestResult from backtest-strategy to avoid conflicts
 export { 
   backtestStrategy,
