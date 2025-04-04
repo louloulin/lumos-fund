@@ -24,6 +24,12 @@ export * from './consistencyTools';
 // 管理层质量分析工具
 export * from './managementTools';
 
+// 创新能力分析工具
+export * from './innovationTools';
+
+// 收入增长分析工具
+export * from './revenueTools';
+
 // 未来可以添加更多专业化的分析工具
 // export * from './macroEconomicTools';
 // export * from './technicalIndicatorTools'; 

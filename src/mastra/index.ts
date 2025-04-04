@@ -24,6 +24,8 @@ import { newsSentimentTool } from './tools/newsSentiment';
 import { factorModelTool } from './tools/factorModelTools';
 import { statisticalArbitrageTool } from './tools/statisticalArbitrageTools';
 import { strategyRecommendationTool } from './tools/strategyRecommendationTool';
+import { innovationAssessmentTool } from './tools/innovationTools';
+import { revenueGrowthTool } from './tools/revenueTools';
 
 const logger = createLogger('mastra');
 
@@ -295,7 +297,9 @@ export const mastra = new Mastra({
     newsSentimentTool,
     factorModelTool,
     statisticalArbitrageTool,
-    strategyRecommendationTool
+    strategyRecommendationTool,
+    innovationAssessmentTool,
+    revenueGrowthTool
   }
 });
 
@@ -370,7 +374,9 @@ export {
   factorModelTool,
   statisticalArbitrageTool,
   stockPriceTool,
-  strategyRecommendationTool
+  strategyRecommendationTool,
+  innovationAssessmentTool,
+  revenueGrowthTool
 };
 
 // 导出 Mastra 工具

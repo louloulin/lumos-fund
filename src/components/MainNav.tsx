@@ -14,6 +14,7 @@ import {
   Settings2Icon,
   BrainCircuitIcon,
   ActivityIcon,
+  BeakerIcon,
 } from "lucide-react";
 
 interface MainNavProps {
@@ -78,6 +79,12 @@ export function MainNav({ className, showMobileMenu }: MainNavProps) {
       label: "AI代理测试",
       icon: BrainCircuitIcon,
       active: pathname === "/test-agents",
+    },
+    {
+      href: "/test-tools",
+      label: "财务工具测试",
+      icon: BeakerIcon,
+      active: pathname === "/test-tools",
     },
     {
       href: "/settings",
