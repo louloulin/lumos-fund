@@ -520,12 +520,14 @@ async fn get_financial_metrics(
 
 ### 5.3 与Mastra的集成
 
-创建Next.js API路由与Rust后端和Mastra代理集成： ✅
+创建Next.js服务器组件与Mastra代理集成： ✅
 
 ```typescript
 // src/actions/strategy.ts
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { getStrategyRecommendation } from '@/mastra/agents/strategyRecommendationAgent';
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { strategyRecommendationAgent } from '@/mastra/agents';
 
 export async function getInvestmentStrategy(params: {
   ticker: string;
@@ -536,13 +538,44 @@ export async function getInvestmentStrategy(params: {
   try {
     const { ticker, riskTolerance, investmentHorizon, marketCondition } = params;
     
+    // 创建提示
+    const prompt = `
+      请为以下股票推荐投资策略:
+      
+      股票代码: ${ticker}
+      风险承受能力: ${riskTolerance}
+      投资期限: ${investmentHorizon}
+      市场状况: ${marketCondition || '未指定'}
+      
+      请提供:
+      1. 主要推荐策略及理由
+      2. 次要推荐策略及理由
+      3. 资金分配建议
+      4. 策略执行参数
+      5. 风险管理建议
+      
+      以JSON格式返回:
+      {
+        "primaryStrategy": "价值投资",
+        "secondaryStrategy": "动量投资",
+        "allocation": { "primary": 70, "secondary": 30 },
+        "parameters": { "entryPoint": "...", "exitPoint": "..." },
+        "riskManagement": "...",
+        "confidence": 85
+      }
+    `;
+    
     // 调用Mastra代理获取策略推荐
-    const recommendation = await getStrategyRecommendation(
-      ticker,
-      riskTolerance,
-      investmentHorizon,
-      marketCondition
-    );
+    const response = await strategyRecommendationAgent.run({
+      messages: [{ role: 'user', content: prompt }]
+    });
+    
+    // 解析JSON响应
+    const jsonMatch = response.content.match(/\{[\s\S]*\}/);
+    const recommendation = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
+    
+    // 刷新页面缓存
+    revalidatePath(`/stocks/${ticker}/strategy`);
     
     return {
       success: true,
@@ -556,7 +589,7 @@ export async function getInvestmentStrategy(params: {
     };
   }
 }
-```
+``` ✅
 
 ## 6. 数据源集成
 
@@ -621,6 +654,193 @@ impl DataProvider for AlphaVantageProvider {
 
 ### 7.1 回测引擎设计
 
-LumosFund的回测系统将使用Rust实现核心计算，结合TypeScript/Next.js提供用户界面： ✅
+LumosFund的回测系统通过TypeScript实现核心计算，使用Next.js服务器组件提供用户界面： ✅
 
-```
+```typescript
+// src/actions/backtest-strategy.ts
+'use server'
+
+import { createLogger } from '@/lib/logger.server';
+import { 
+  strategyRecommendationAgent, 
+  quantInvestingAgent,
+  technicalAnalysisAgent
+} from '@/mastra/agents';
+import { MarketDataService } from '@/services/marketDataService';
+import { revalidatePath } from 'next/cache';
+
+// 回测类型和功能实现
+export interface BacktestResult {
+  strategy: {
+    name: string;
+    description: string;
+    parameters: Record<string, any>;
+  };
+  performance: {
+    startDate: string;
+    endDate: string;
+    initialCapital: number;
+    finalCapital: number;
+    totalReturn: number;
+    annualizedReturn: number;
+    maxDrawdown: number;
+    sharpeRatio: number;
+    volatility: number;
+    winRate: number;
+    // 其他性能指标...
+  };
+  tradeLog: Array<{
+    date: string;
+    action: 'buy' | 'sell';
+    ticker: string;
+    price: number;
+    shares: number;
+    value: number;
+    reason: string;
+  }>;
+  equityCurve: Array<{
+    date: string;
+    equity: number;
+  }>;
+  // 其他回测结果...
+}
+
+export async function backtestStrategy(options: {
+  tickers: string[];
+  startDate: string;
+  endDate: string;
+  initialCapital: number;
+  strategyType: 'value' | 'growth' | 'momentum' | 'meanReversion' | 'custom';
+  parameters: Record<string, any>;
+  // 其他参数...
+}): Promise<BacktestResult> {
+  // 实现回测逻辑...
+  // 获取历史数据，运行策略，计算绩效...
+  
+  return result;
+}
+``` ✅
+
+### 7.2 AI代理赋能回测 ✅
+
+```typescript
+// src/actions/portfolio-optimization.ts
+'use server'
+
+import { createLogger } from '@/lib/logger.server';
+import { investmentCommitteeAgent, portfolioManagementAgent } from '@/mastra/agents';
+import { MarketDataService } from '@/services/marketDataService';
+import { revalidatePath } from 'next/cache';
+
+// 投资组合优化类型和功能实现
+export interface Portfolio {
+  id: string;
+  name: string;
+  description: string;
+  positions: Position[];
+  cash: number;
+  totalValue: number;
+  // 其他投资组合信息...
+}
+
+export interface Position {
+  ticker: string;
+  shares: number;
+  costBasis: number;
+  currentPrice: number;
+  currentValue: number;
+  weight: number;
+  gain: number;
+  gainPercent: number;
+}
+
+export interface PortfolioOptimizationResult {
+  originalPortfolio: Portfolio;
+  optimizedPortfolio: Portfolio;
+  rebalanceActions: Array<{
+    ticker: string;
+    action: 'buy' | 'sell' | 'hold';
+    shares: number;
+    expectedImpact: string;
+    reasoning: string;
+  }>;
+  // 其他优化结果...
+}
+
+export async function optimizePortfolio(
+  portfolioId: string,
+  options: {
+    targetRisk: 'low' | 'moderate' | 'high';
+    maxPositions: number;
+    sectorConstraints?: Record<string, number>;
+    // 其他选项...
+  }
+): Promise<PortfolioOptimizationResult> {
+  // 实现投资组合优化逻辑...
+  // 分析当前组合，运行优化算法，生成建议...
+  
+  return result;
+}
+``` ✅
+
+### 7.3 投资组合分析 ✅
+
+```typescript
+// src/actions/portfolio-analysis.ts
+'use server'
+
+import { createLogger } from '@/lib/logger.server';
+import {
+  valueInvestingAgent,
+  growthInvestingAgent,
+  technicalAnalysisAgent,
+  investmentCommitteeAgent,
+  riskManagementAgent
+} from '@/mastra/agents';
+import { MockMarketDataService } from '@/services/mockMarketDataService';
+import { revalidatePath } from 'next/cache';
+
+// 投资组合分析类型和功能实现
+export interface PortfolioAnalysisResult {
+  portfolio: Portfolio;
+  holdingsAnalysis: Record<string, {
+    ticker: string;
+    recommendation: 'buy' | 'hold' | 'sell' | 'reduce' | 'increase';
+    timeHorizon: 'short' | 'medium' | 'long';
+    valueAssessment: {
+      score: number; // 0-100
+      analysis: string;
+    };
+    growthProspects: {
+      score: number; // 0-100
+      analysis: string;
+    };
+    // 其他分析...
+  }>;
+  overallAssessment: {
+    diversification: number; // 0-100
+    riskLevel: 'low' | 'medium' | 'high';
+    sectorAllocation: Record<string, number>;
+    expectedReturn: {
+      short: number;
+      medium: number;
+      long: number;
+    };
+    // 其他评估...
+  };
+  recommendations: {
+    immediate: string;
+    shortTerm: string;
+    longTerm: string;
+  };
+}
+
+export async function analyzePortfolio(
+  portfolioId: string
+): Promise<PortfolioAnalysisResult> {
+  // 实现投资组合分析逻辑...
+  // 分析每个持仓，运行AI代理，整合结果...
+  
+  return result;
+}
+``` ✅

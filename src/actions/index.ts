@@ -3,6 +3,8 @@
 // Export all actions for server components to use
 export * from './quantitative-analysis';
 export * from './portfolio-optimization';
+export * from './portfolio-analysis';
+export * from './testPortfolioAnalysis';
 // Rename BacktestResult from backtest-strategy to avoid conflicts
 export { 
   backtestStrategy,

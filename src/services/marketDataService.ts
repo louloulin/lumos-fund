@@ -128,13 +128,14 @@ const DEFAULT_CONFIG: DataSourceConfig = {
   updateInterval: 60000 // 1分钟
 };
 
-class MarketDataService extends EventEmitter {
+export class MarketDataService extends EventEmitter {
   private config: DataSourceConfig;
   private marketOverview: MarketOverview | null = null;
   private stockData: Map<string, StockData> = new Map();
   private stockQuotes: Map<string, StockQuote> = new Map();
   private updateTimers: Map<string, NodeJS.Timeout> = new Map();
   private isInitialized = false;
+  private mockData: Record<string, any> = {};
 
   constructor(config: DataSourceConfig = DEFAULT_CONFIG) {
     super();
@@ -145,22 +146,18 @@ class MarketDataService extends EventEmitter {
    * 初始化市场数据服务
    */
   async initialize(): Promise<void> {
-    if (this.isInitialized) return;
-
-    try {
-      // 获取市场概览数据
-      await this.fetchMarketOverview();
-      
-      // 设置定时更新
-      this.setupUpdateInterval();
-      
-      this.isInitialized = true;
-      this.emit('initialized');
-    } catch (error) {
-      console.error('初始化市场数据服务失败:', error);
-      this.emit('error', error);
-      throw error;
+    if (this.isInitialized) {
+      return;
     }
+    
+    logger.info('初始化市场数据服务');
+    
+    // 在实际应用中，这里会连接到数据库或API
+    // 为了演示，我们预加载一些模拟数据
+    this.loadMockData();
+    
+    this.isInitialized = true;
+    logger.info('市场数据服务初始化完成');
   }
 
   /**
@@ -543,29 +540,19 @@ class MarketDataService extends EventEmitter {
     try {
       logger.info('获取股票价格历史数据', { symbol, period });
       
-      // 在实际应用中，这里会调用外部API
-      // 目前使用模拟数据
-      const today = new Date();
-      let startDate = new Date();
-      
-      // 根据period计算开始日期
-      switch (period) {
-        case '1d': startDate.setDate(today.getDate() - 1); break;
-        case '5d': startDate.setDate(today.getDate() - 5); break;
-        case '1m': startDate.setMonth(today.getMonth() - 1); break;
-        case '3m': startDate.setMonth(today.getMonth() - 3); break;
-        case '6m': startDate.setMonth(today.getMonth() - 6); break;
-        case '1y': startDate.setFullYear(today.getFullYear() - 1); break;
-        case '2y': startDate.setFullYear(today.getFullYear() - 2); break;
-        case '5y': startDate.setFullYear(today.getFullYear() - 5); break;
-        case 'max': startDate.setFullYear(2000); break;
-        default: startDate.setFullYear(today.getFullYear() - 1);
+      // 检查初始化状态
+      if (!this.isInitialized) {
+        await this.initialize();
       }
       
-      const startDateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = today.toISOString().split('T')[0];
+      // 返回模拟数据
+      const mockKey = `price_${symbol.toLowerCase()}`;
+      if (this.mockData[mockKey]) {
+        return this.mockData[mockKey];
+      }
       
-      return this.generateMockPriceData(symbol, startDateStr, endDateStr);
+      // 如果没有指定股票的数据，生成一些随机数据
+      return this.generateRandomPriceData(symbol, 180); // 半年数据
     } catch (error) {
       logger.error('获取股票价格历史数据失败', { symbol, period, error });
       this.emit('error', error);
@@ -581,9 +568,19 @@ class MarketDataService extends EventEmitter {
     try {
       logger.info('获取股票财务数据', { symbol });
       
-      // 在实际应用中，这里会调用外部API
-      // 目前使用模拟数据
-      return this.generateMockFinancialData(symbol);
+      // 检查初始化状态
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
+      
+      // 返回模拟数据
+      const mockKey = `financial_${symbol.toLowerCase()}`;
+      if (this.mockData[mockKey]) {
+        return this.mockData[mockKey];
+      }
+      
+      // 如果没有指定股票的数据，生成一些随机数据
+      return this.generateRandomFinancialData(symbol);
     } catch (error) {
       logger.error('获取股票财务数据失败', { symbol, error });
       this.emit('error', error);
@@ -600,16 +597,19 @@ class MarketDataService extends EventEmitter {
     try {
       logger.info('获取股票相关新闻', { symbol, days });
       
-      // 在实际应用中，这里会调用外部API
-      // 目前使用模拟数据
-      const today = new Date();
-      const startDate = new Date();
-      startDate.setDate(today.getDate() - days);
+      // 检查初始化状态
+      if (!this.isInitialized) {
+        await this.initialize();
+      }
       
-      const startDateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = today.toISOString().split('T')[0];
+      // 返回模拟数据
+      const mockKey = `news_${symbol.toLowerCase()}`;
+      if (this.mockData[mockKey]) {
+        return this.mockData[mockKey].slice(0, Math.min(20, Math.max(5, Math.floor(days / 3))));
+      }
       
-      return this.generateMockNewsData(symbol, startDateStr, endDateStr);
+      // 如果没有指定股票的数据，生成一些随机数据
+      return this.generateRandomNewsData(symbol, days);
     } catch (error) {
       logger.error('获取股票相关新闻失败', { symbol, days, error });
       this.emit('error', error);
@@ -618,382 +618,287 @@ class MarketDataService extends EventEmitter {
   }
 
   /**
-   * 生成模拟价格历史数据
+   * 加载模拟数据
    */
-  private generateMockPriceData(symbol: string, startDate: string, endDate: string): PriceData[] {
-    const result: PriceData[] = [];
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+  private loadMockData(): void {
+    // AAPL价格数据
+    this.mockData['price_aapl'] = this.generateRandomPriceData('AAPL', 180, 150, 180);
     
-    // 根据股票代码设置基础价格
-    const basePrice = this.getBasePriceForSymbol(symbol);
+    // MSFT价格数据
+    this.mockData['price_msft'] = this.generateRandomPriceData('MSFT', 180, 280, 330);
     
-    // 生成日期范围内的价格数据
-    let lastClose = basePrice;
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      // 跳过周末
-      const day = d.getDay();
-      if (day === 0 || day === 6) continue;
-      
-      // 随机波动 (-3% to +3%)
-      const change = (Math.random() * 6 - 3) / 100;
-      const close = +(lastClose * (1 + change)).toFixed(2);
-      const open = +(lastClose * (1 + (Math.random() * 2 - 1) / 100)).toFixed(2);
-      const high = +Math.max(open, close, open * (1 + Math.random() * 2 / 100)).toFixed(2);
-      const low = +Math.min(open, close, open * (1 - Math.random() * 2 / 100)).toFixed(2);
-      const volume = Math.floor(Math.random() * 10000000) + 5000000;
-      
-      const date = d.toISOString().split('T')[0];
-      result.push({ date, open, high, low, close, volume });
-      lastClose = close;
-    }
+    // AMZN价格数据
+    this.mockData['price_amzn'] = this.generateRandomPriceData('AMZN', 180, 130, 160);
     
-    // 计算技术指标
-    return this.calculateTechnicalIndicators(result);
-  }
-
-  /**
-   * 计算技术指标
-   */
-  private calculateTechnicalIndicators(priceData: PriceData[]): PriceData[] {
-    // 计算移动平均线
-    const ma20 = this.calculateMA(priceData.map(item => item.close), 20);
-    const ma60 = this.calculateMA(priceData.map(item => item.close), 60);
+    // GOOGL价格数据
+    this.mockData['price_googl'] = this.generateRandomPriceData('GOOGL', 180, 120, 150);
     
-    // 计算RSI
-    const rsi = this.calculateRSI(priceData.map(item => item.close), 14);
+    // META价格数据
+    this.mockData['price_meta'] = this.generateRandomPriceData('META', 180, 300, 500);
     
-    // 计算MACD
-    const macd = this.calculateMACD(priceData.map(item => item.close));
-    
-    // 合并指标到价格数据
-    return priceData.map((item, index) => ({
-      ...item,
-      ma20: ma20[index],
-      ma60: ma60[index],
-      rsi: rsi[index],
-      macd: macd.macdLine[index]
-    }));
-  }
-
-  /**
-   * 计算移动平均线
-   */
-  private calculateMA(data: number[], period: number): (number | undefined)[] {
-    const result: (number | undefined)[] = [];
-    
-    for (let i = 0; i < data.length; i++) {
-      if (i < period - 1) {
-        result.push(undefined); // 不足周期的点设为undefined
-      } else {
-        const sum = data.slice(i - period + 1, i + 1).reduce((acc, val) => acc + val, 0);
-        result.push(+(sum / period).toFixed(2));
-      }
-    }
-    
-    return result;
-  }
-
-  /**
-   * 计算RSI指标
-   */
-  private calculateRSI(data: number[], period: number): (number | undefined)[] {
-    const result: (number | undefined)[] = [];
-    let gains = 0;
-    let losses = 0;
-    
-    for (let i = 0; i < data.length; i++) {
-      if (i === 0) {
-        result.push(undefined);
-        continue;
-      }
-      
-      const change = data[i] - data[i - 1];
-      
-      if (i < period) {
-        gains += change > 0 ? change : 0;
-        losses += change < 0 ? -change : 0;
-        result.push(undefined);
-        continue;
-      }
-      
-      if (i === period) {
-        const avgGain = gains / period;
-        const avgLoss = losses / period;
-        const rs = avgGain / avgLoss;
-        const rsi = 100 - (100 / (1 + rs));
-        result.push(+rsi.toFixed(2));
-        continue;
-      }
-      
-      const prevAvgGain = (gains / period) * (period - 1);
-      const prevAvgLoss = (losses / period) * (period - 1);
-      
-      const avgGain = (prevAvgGain + (change > 0 ? change : 0)) / period;
-      const avgLoss = (prevAvgLoss + (change < 0 ? -change : 0)) / period;
-      
-      gains = avgGain * period;
-      losses = avgLoss * period;
-      
-      const rs = avgGain / avgLoss;
-      const rsi = 100 - (100 / (1 + rs));
-      result.push(+rsi.toFixed(2));
-    }
-    
-    return result;
-  }
-
-  /**
-   * 计算MACD指标
-   */
-  private calculateMACD(data: number[], fastPeriod: number = 12, slowPeriod: number = 26, signalPeriod: number = 9) {
-    const ema12 = this.calculateEMA(data, fastPeriod);
-    const ema26 = this.calculateEMA(data, slowPeriod);
-    
-    const macdLine: (number | undefined)[] = [];
-    for (let i = 0; i < data.length; i++) {
-      if (i < slowPeriod - 1) {
-        macdLine.push(undefined);
-      } else {
-        const ema12Value = ema12[i];
-        const ema26Value = ema26[i];
-        if (ema12Value !== undefined && ema26Value !== undefined) {
-          macdLine.push(+(ema12Value - ema26Value).toFixed(2));
-        } else {
-          macdLine.push(undefined);
+    // 财务数据
+    this.mockData['financial_aapl'] = {
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      sector: 'Technology',
+      industry: 'Consumer Electronics',
+      metrics: {
+        pe: 32.15,
+        eps: 5.23,
+        roe: 0.1785,
+        roa: 0.1235,
+        debtToEquity: 1.68,
+        currentRatio: 1.05,
+        revenueGrowth: 0.089,
+        profitMargin: 0.255,
+        dividend: 0.0085
+      },
+      statements: {
+        income: {
+          revenue: 378323000000,
+          costOfRevenue: 210676000000,
+          grossProfit: 167647000000,
+          operatingExpense: 48178000000,
+          operatingIncome: 119469000000,
+          netIncome: 96995000000
+        },
+        balance: {
+          totalAssets: 352755000000,
+          totalLiabilities: 290452000000,
+          totalEquity: 62303000000,
+          cash: 62632000000,
+          debt: 119420000000
+        },
+        cashFlow: {
+          operatingCashFlow: 116425000000,
+          capitalExpenditures: -10940000000,
+          freeCashFlow: 105485000000
         }
       }
-    }
+    };
     
-    // 过滤掉undefined值再计算EMA
-    const validMacdValues = macdLine.filter((value): value is number => value !== undefined);
-    const signalLine = this.calculateEMA(validMacdValues, signalPeriod);
-    
-    // 补齐signalLine前面缺失的值
-    const fullSignalLine: (number | undefined)[] = [];
-    for (let i = 0; i < macdLine.length; i++) {
-      if (i < slowPeriod + signalPeriod - 2) {
-        fullSignalLine.push(undefined);
-      } else {
-        fullSignalLine.push(signalLine[i - (slowPeriod - 1)]);
-      }
-    }
-    
-    const histogram: (number | undefined)[] = [];
-    for (let i = 0; i < macdLine.length; i++) {
-      if (i < slowPeriod + signalPeriod - 2) {
-        histogram.push(undefined);
-      } else {
-        const macdValue = macdLine[i];
-        const signalValue = fullSignalLine[i];
-        if (macdValue !== undefined && signalValue !== undefined) {
-          histogram.push(+(macdValue - signalValue).toFixed(2));
-        } else {
-          histogram.push(undefined);
+    // MSFT财务数据
+    this.mockData['financial_msft'] = {
+      symbol: 'MSFT',
+      name: 'Microsoft Corporation',
+      sector: 'Technology',
+      industry: 'Software—Infrastructure',
+      metrics: {
+        pe: 35.42,
+        eps: 9.20,
+        roe: 0.3765,
+        roa: 0.1863,
+        debtToEquity: 0.42,
+        currentRatio: 1.78,
+        revenueGrowth: 0.181,
+        profitMargin: 0.357,
+        dividend: 0.0072
+      },
+      statements: {
+        income: {
+          revenue: 211915000000,
+          costOfRevenue: 64700000000,
+          grossProfit: 147215000000,
+          operatingExpense: 68085000000,
+          operatingIncome: 79130000000,
+          netIncome: 72361000000
+        },
+        balance: {
+          totalAssets: 364840000000,
+          totalLiabilities: 185200000000,
+          totalEquity: 179640000000,
+          cash: 111255000000,
+          debt: 75189000000
+        },
+        cashFlow: {
+          operatingCashFlow: 87650000000,
+          capitalExpenditures: -23886000000,
+          freeCashFlow: 63764000000
         }
       }
-    }
-    
-    return {
-      macdLine,
-      signalLine: fullSignalLine,
-      histogram
     };
-  }
-
-  /**
-   * 计算指数移动平均线
-   */
-  private calculateEMA(data: number[], period: number): (number | undefined)[] {
-    const result: (number | undefined)[] = [];
-    const k = 2 / (period + 1);
     
-    for (let i = 0; i < data.length; i++) {
-      if (i < period - 1) {
-        result.push(undefined);
-      } else if (i === period - 1) {
-        // 第一个EMA值使用简单平均
-        const sum = data.slice(0, period).reduce((acc, val) => acc + val, 0);
-        result.push(+(sum / period).toFixed(2));
-      } else {
-        const prevEMA = result[i - 1];
-        if (prevEMA !== undefined) {
-          const ema = data[i] * k + prevEMA * (1 - k);
-          result.push(+ema.toFixed(2));
-        } else {
-          result.push(undefined);
-        }
+    // 新闻数据示例
+    this.mockData['news_aapl'] = [
+      {
+        title: "Apple Unveils New iPhone with Revolutionary AI Features",
+        date: "2024-05-10",
+        source: "TechCrunch",
+        sentiment: "positive",
+        url: "https://example.com/apple-new-iphone"
+      },
+      {
+        title: "Apple's Service Revenue Hits All-Time High",
+        date: "2024-05-08",
+        source: "CNBC",
+        sentiment: "positive",
+        url: "https://example.com/apple-service-revenue"
+      },
+      {
+        title: "Apple Faces Regulatory Challenges in EU",
+        date: "2024-05-05",
+        source: "The Wall Street Journal",
+        sentiment: "negative",
+        url: "https://example.com/apple-eu-regulations"
       }
-    }
+    ];
     
-    return result;
+    this.mockData['news_msft'] = [
+      {
+        title: "Microsoft Cloud Business Exceeds Expectations",
+        date: "2024-05-12",
+        source: "Bloomberg",
+        sentiment: "positive",
+        url: "https://example.com/microsoft-cloud-growth"
+      },
+      {
+        title: "Microsoft's AI Integration Boosts Office 365 Adoption",
+        date: "2024-05-09",
+        source: "Forbes",
+        sentiment: "positive",
+        url: "https://example.com/microsoft-ai-office"
+      },
+      {
+        title: "Microsoft Announces New Surface Lineup",
+        date: "2024-05-03",
+        source: "The Verge",
+        sentiment: "neutral",
+        url: "https://example.com/microsoft-surface"
+      }
+    ];
   }
-
+  
   /**
-   * 生成模拟财务数据
+   * 生成随机价格数据
    */
-  private generateMockFinancialData(symbol: string): FinancialData {
-    // 根据股票代码设置基础财务数据
-    let baseRevenue, baseEPS, basePE, baseROE, baseMargin, baseGrowth;
-    switch (symbol) {
-      case 'AAPL':
-        baseRevenue = 400000000000; // 4000亿美元
-        baseEPS = 6.5;
-        basePE = 28;
-        baseROE = 0.35; // 35%
-        baseMargin = 0.25; // 25%
-        baseGrowth = 0.08; // 8%
-        break;
-      case 'MSFT':
-        baseRevenue = 200000000000;
-        baseEPS = 9.2;
-        basePE = 32;
-        baseROE = 0.40;
-        baseMargin = 0.38;
-        baseGrowth = 0.15;
-        break;
-      case 'GOOGL':
-        baseRevenue = 300000000000;
-        baseEPS = 5.8;
-        basePE = 25;
-        baseROE = 0.28;
-        baseMargin = 0.22;
-        baseGrowth = 0.12;
-        break;
-      case 'AMZN':
-        baseRevenue = 500000000000;
-        baseEPS = 3.2;
-        basePE = 38;
-        baseROE = 0.18;
-        baseMargin = 0.06;
-        baseGrowth = 0.18;
-        break;
-      case 'TSLA':
-        baseRevenue = 100000000000;
-        baseEPS = 4.3;
-        basePE = 45;
-        baseROE = 0.22;
-        baseMargin = 0.15;
-        baseGrowth = 0.25;
-        break;
-      case 'NVDA':
-        baseRevenue = 60000000000;
-        baseEPS = 12.5;
-        basePE = 55;
-        baseROE = 0.60;
-        baseMargin = 0.45;
-        baseGrowth = 0.60;
-        break;
-      default:
-        baseRevenue = 50000000000;
-        baseEPS = 3.0;
-        basePE = 20;
-        baseROE = 0.15;
-        baseMargin = 0.12;
-        baseGrowth = 0.10;
-    }
+  private generateRandomPriceData(
+    ticker: string, 
+    days: number = 180, 
+    startPrice: number = 100, 
+    endPrice: number = 120
+  ): PriceData[] {
+    const data: PriceData[] = [];
+    const now = new Date();
+    let currentPrice = startPrice;
+    const priceRange = endPrice - startPrice;
+    const dailyChange = priceRange / days;
     
-    // 添加一些随机变化
-    const randomFactor = 1 + (Math.random() * 0.2 - 0.1); // ±10%
-    
-    const revenue = Math.floor(baseRevenue * randomFactor);
-    const eps = +(baseEPS * randomFactor).toFixed(2);
-    const pe = +(basePE * randomFactor).toFixed(2);
-    const roe = +(baseROE * randomFactor).toFixed(2);
-    const profitMargin = +(baseMargin * randomFactor).toFixed(2);
-    const revenueGrowth = +(baseGrowth * randomFactor).toFixed(2);
-    
-    const netIncome = Math.floor(revenue * profitMargin);
-    const pbv = +(pe * roe).toFixed(2);
-    const dividendYield = +(Math.random() * 0.03).toFixed(2); // 0-3%
-    const debtToEquity = +(Math.random() * 0.5 + 0.1).toFixed(2); // 0.1-0.6
-    const currentRatio = +(Math.random() * 2 + 1).toFixed(2); // 1-3
-    const quickRatio = +(currentRatio * 0.8).toFixed(2);
-    const freeCashFlow = Math.floor(netIncome * (Math.random() * 0.4 + 0.8)); // 80-120% of net income
-    const epsGrowth = +(revenueGrowth * (Math.random() * 0.5 + 0.75)).toFixed(2); // 75-125% of revenue growth
-    
-    return {
-      ticker: symbol,
-      period: 'TTM', // 过去12个月
-      revenue,
-      netIncome,
-      eps,
-      pe,
-      pbv,
-      roe,
-      dividendYield,
-      debtToEquity,
-      currentRatio,
-      quickRatio,
-      freeCashFlow,
-      profitMargin,
-      revenueGrowth,
-      epsGrowth
-    };
-  }
-
-  /**
-   * 生成模拟新闻数据
-   */
-  private generateMockNewsData(symbol: string, startDate: string, endDate: string): NewsItem[] {
-    const result: NewsItem[] = [];
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    // 新闻模板，根据不同股票准备一些标题和摘要
-    const newsTemplates: Record<string, Array<{title: string, summary: string, sentiment: 'positive' | 'negative' | 'neutral'}>> = {
-      'AAPL': [
-        { title: 'Apple发布新一代iPhone Pro', summary: '苹果公司今日发布新一代iPhone Pro，配备更快的处理器和更高的拍照能力', sentiment: 'positive' },
-        { title: 'Apple第四季度财报超出预期', summary: '苹果公司第四季度营收和利润超出分析师预期，主要受服务业务增长推动', sentiment: 'positive' },
-        { title: 'Apple将扩大在印度的生产', summary: '苹果计划在印度建立更多生产线，减少对中国供应链的依赖', sentiment: 'neutral' },
-        { title: 'Apple新MacBook销售不及预期', summary: '分析师报告显示，新款MacBook销量低于市场预期，可能影响下季度业绩', sentiment: 'negative' },
-        { title: 'Apple Vision Pro销量突破预期', summary: 'Apple首款空间计算设备Vision Pro销量超出分析师预期，显示新品类潜力', sentiment: 'positive' }
-      ],
-      'default': [
-        { title: '公司宣布新产品线', summary: '公司今日宣布推出全新产品线，旨在拓展市场份额并提升用户体验', sentiment: 'positive' },
-        { title: '季度财报超出预期', summary: '公司最新季度财报显示营收和利润均超出分析师预期，股价应声上涨', sentiment: 'positive' },
-        { title: '公司完成战略融资', summary: '公司宣布完成新一轮战略融资，将加速业务扩张和技术研发', sentiment: 'positive' },
-        { title: '分析师下调目标价', summary: '多家投行分析师下调公司目标价，认为当前估值已反映未来增长', sentiment: 'negative' },
-        { title: '公司宣布裁员计划', summary: '公司为了优化成本结构，宣布新一轮全球范围的裁员计划', sentiment: 'negative' },
-        { title: '公司与行业巨头达成合作', summary: '公司宣布与行业领导者达成战略合作，共同开发下一代技术', sentiment: 'positive' },
-        { title: '监管机构对公司展开调查', summary: '监管机构就公司商业实践可能违反竞争法展开调查', sentiment: 'negative' },
-        { title: '公司扩大国际业务', summary: '公司宣布进入多个新市场，加速国际化战略实施', sentiment: 'neutral' }
-      ]
-    };
-    
-    // 选择适合股票的新闻模板
-    const templates = newsTemplates[symbol] || newsTemplates['default'];
-    
-    // 生成日期范围内的随机新闻
-    const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    const newsCount = Math.min(20, Math.max(5, Math.floor(totalDays / 3))); // 平均每3天一条新闻，最少5条，最多20条
-    
-    for (let i = 0; i < newsCount; i++) {
-      // 随机选择一个模板
-      const template = templates[Math.floor(Math.random() * templates.length)];
+    for (let i = 0; i < days; i++) {
+      const date = new Date();
+      date.setDate(now.getDate() - (days - i));
       
-      // 随机生成日期
-      const randomDays = Math.floor(Math.random() * totalDays);
-      const newsDate = new Date(start);
-      newsDate.setDate(newsDate.getDate() + randomDays);
+      // 添加一些随机波动
+      const randomFactor = 0.01 * (Math.random() - 0.5);
+      currentPrice += dailyChange + (currentPrice * randomFactor);
       
-      const date = newsDate.toISOString().split('T')[0];
-      const title = template.title.replace('公司', symbol);
-      const source = ['华尔街日报', '彭博社', '路透社', '金融时报', 'CNBC'][Math.floor(Math.random() * 5)];
-      const url = `https://example.com/news/${symbol.toLowerCase()}/${date.replace(/-/g, '')}`;
+      // 确保价格合理
+      currentPrice = Math.max(currentPrice, startPrice * 0.7);
+      currentPrice = Math.min(currentPrice, endPrice * 1.3);
       
-      result.push({
-        date,
-        title,
-        summary: template.summary.replace('公司', symbol),
-        source,
-        url,
-        sentiment: template.sentiment
+      // 计算其他指标
+      const open = currentPrice * (1 + (Math.random() - 0.5) * 0.01);
+      const high = Math.max(open, currentPrice) * (1 + Math.random() * 0.01);
+      const low = Math.min(open, currentPrice) * (1 - Math.random() * 0.01);
+      const volume = Math.floor(1000000 + Math.random() * 9000000);
+      
+      data.push({
+        date: date.toISOString().split('T')[0],
+        ticker,
+        open: parseFloat(open.toFixed(2)),
+        high: parseFloat(high.toFixed(2)),
+        low: parseFloat(low.toFixed(2)),
+        close: parseFloat(currentPrice.toFixed(2)),
+        volume,
+        change: parseFloat(((currentPrice - open) / open * 100).toFixed(2)),
+        changePercent: parseFloat(((currentPrice - open) / open).toFixed(4))
       });
     }
     
-    // 按日期排序，最新的在前
-    return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return data;
+  }
+  
+  /**
+   * 生成随机财务数据
+   */
+  private generateRandomFinancialData(ticker: string): FinancialData {
+    const randomPositiveValue = (base: number) => base * (1 + (Math.random() * 0.5));
+    const randomPercentage = () => parseFloat((Math.random() * 0.4).toFixed(4));
+    const randomRatio = () => parseFloat((0.5 + Math.random() * 2).toFixed(2));
+    
+    return {
+      ticker,
+      period: 'TTM', // 过去12个月
+      revenue: randomPositiveValue(10000000000),
+      netIncome: randomPositiveValue(2500000000),
+      eps: parseFloat((2 + Math.random() * 8).toFixed(2)),
+      pe: parseFloat((15 + Math.random() * 25).toFixed(2)),
+      pbv: parseFloat((Math.random() * 0.5 + 0.1).toFixed(2)),
+      roe: randomPercentage(),
+      dividendYield: parseFloat((Math.random() * 0.03).toFixed(4)),
+      debtToEquity: randomRatio(),
+      currentRatio: randomRatio(),
+      quickRatio: parseFloat((randomRatio() * 0.8).toFixed(2)),
+      freeCashFlow: randomPositiveValue(3000000000),
+      profitMargin: randomPercentage() * 0.8,
+      revenueGrowth: randomPercentage() * 0.6,
+      epsGrowth: parseFloat((randomPercentage() * 0.75 + 0.75).toFixed(2))
+    };
+  }
+  
+  /**
+   * 生成随机新闻数据
+   */
+  private generateRandomNewsData(ticker: string, count: number = 10): NewsItem[] {
+    const sources = ['Bloomberg', 'CNBC', 'WSJ', 'Reuters', 'Forbes', 'Financial Times'];
+    const sentiments = ['positive', 'negative', 'neutral'];
+    const topics = ['earnings', 'product', 'management', 'regulatory', 'market', 'competition'];
+    
+    const news: NewsItem[] = [];
+    const now = new Date();
+    
+    for (let i = 0; i < count; i++) {
+      const date = new Date();
+      date.setDate(now.getDate() - i - Math.floor(Math.random() * 7));
+      
+      const sentiment = sentiments[Math.floor(Math.random() * sentiments.length)];
+      const source = sources[Math.floor(Math.random() * sources.length)];
+      const topic = topics[Math.floor(Math.random() * topics.length)];
+      
+      let title = '';
+      if (sentiment === 'positive') {
+        title = [
+          `${ticker} Reports Strong ${topic.charAt(0).toUpperCase() + topic.slice(1)} Performance`,
+          `${ticker} Exceeds Market Expectations`,
+          `Analysts Upgrade ${ticker} on Positive Outlook`,
+          `${ticker} Announces Expansion Plans`
+        ][Math.floor(Math.random() * 4)];
+      } else if (sentiment === 'negative') {
+        title = [
+          `${ticker} Misses ${topic.charAt(0).toUpperCase() + topic.slice(1)} Targets`,
+          `${ticker} Faces Challenges in Current Market`,
+          `Analysts Downgrade ${ticker}`,
+          `${ticker} Announces Restructuring`
+        ][Math.floor(Math.random() * 4)];
+      } else {
+        title = [
+          `${ticker} Reports Mixed Results`,
+          `${ticker} Maintains Steady Course Despite Market Volatility`,
+          `Analysts Hold Neutral Stance on ${ticker}`,
+          `${ticker} Announces Strategic Partnership`
+        ][Math.floor(Math.random() * 4)];
+      }
+      
+      news.push({
+        date: date.toISOString().split('T')[0],
+        title,
+        summary: `This is a summary of the news article about ${ticker}. The article discusses ${topic} and its impact on the company.`,
+        source,
+        url: `https://example.com/${ticker.toLowerCase()}-${topic}-${date.getTime()}`,
+        sentiment
+      });
+    }
+    
+    return news;
   }
 }
 
