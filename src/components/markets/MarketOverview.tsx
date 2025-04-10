@@ -19,13 +19,15 @@ import {
   TrendingUpIcon,
   TrendingDownIcon,
   BarChart4Icon,
-  NewspaperIcon
+  NewspaperIcon,
+  AlertCircleIcon
 } from 'lucide-react';
 import { 
-  realTimeMarketDataService, 
   MarketOverview as MarketOverviewType,
   MarketNews
 } from '@/services/realTimeMarketDataService';
+import { marketDataServiceFactory } from '@/services/marketDataServiceFactory';
+import { getCurrentMarketDataMode } from '@/actions/market-data-settings';
 import { 
   LineChart, 
   Line, 
@@ -36,6 +38,7 @@ import {
   ResponsiveContainer 
 } from "recharts"
 
+// 保留原始的模拟数据，以备服务初始化失败或数据加载中时使用
 const mockIndexData = [
   { name: "沪深300", value: 3764.32, change: 0.76 },
   { name: "上证指数", value: 2968.45, change: 0.54 },
@@ -78,6 +81,8 @@ export function MarketOverview() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState('indices');
+  const [dataMode, setDataMode] = useState<'simulation' | 'live'>('simulation');
+  const [serviceError, setServiceError] = useState<string | null>(null);
 
   useEffect(() => {
     initializeAndLoadData();
@@ -86,9 +91,15 @@ export function MarketOverview() {
   const initializeAndLoadData = async () => {
     try {
       setIsLoading(true);
+      setServiceError(null);
+      
+      // 获取当前数据模式
+      const currentMode = await getCurrentMarketDataMode();
+      setDataMode(currentMode);
       
       // 初始化市场数据服务
-      const initialized = await realTimeMarketDataService.initialize();
+      const marketDataService = marketDataServiceFactory.getService();
+      const initialized = await marketDataService.initialize();
       
       if (initialized) {
         // 加载市场概览数据
@@ -97,9 +108,11 @@ export function MarketOverview() {
         // 加载市场新闻
         await fetchMarketNews();
       } else {
+        setServiceError('无法初始化市场数据服务');
         console.error('无法初始化市场数据服务');
       }
     } catch (error) {
+      setServiceError('加载市场数据失败');
       console.error('加载市场数据失败', error);
     } finally {
       setIsLoading(false);
@@ -108,7 +121,8 @@ export function MarketOverview() {
 
   const fetchMarketData = async () => {
     try {
-      const overview = await realTimeMarketDataService.getMarketOverview();
+      const marketDataService = marketDataServiceFactory.getService();
+      const overview = await marketDataService.getMarketOverview();
       setMarketData(overview);
       setLastUpdated(new Date());
     } catch (error) {
@@ -118,7 +132,8 @@ export function MarketOverview() {
 
   const fetchMarketNews = async () => {
     try {
-      const news = await realTimeMarketDataService.getMarketNews();
+      const marketDataService = marketDataServiceFactory.getService();
+      const news = await marketDataService.getMarketNews();
       setMarketNews(news);
     } catch (error) {
       console.error('获取市场新闻失败', error);
@@ -360,88 +375,154 @@ export function MarketOverview() {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <CardTitle>市场概览</CardTitle>
-          <CardDescription>今日主要指数表现和市场热点</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle>市场概览</CardTitle>
+            <CardDescription className="mt-1">
+              今日主要指数表现和市场热点
+              {dataMode === 'simulation' && (
+                <span className="ml-2 inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
+                  模拟数据
+                </span>
+              )}
+              {dataMode === 'live' && (
+                <span className="ml-2 inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                  实时数据
+                </span>
+              )}
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1"
+            onClick={handleRefresh}
+            disabled={isLoading || isRefreshing}
+          >
+            <RefreshCwIcon className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? '正在刷新...' : '刷新'}</span>
+          </Button>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="indices" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="indices">主要指数</TabsTrigger>
-              <TabsTrigger value="news">市场新闻</TabsTrigger>
-              <TabsTrigger value="trending">热门股票</TabsTrigger>
-            </TabsList>
-            <TabsContent value="indices" className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {mockIndexData.map((index) => (
-                  <Card key={index.name}>
-                    <CardContent className="p-4">
-                      <div className="text-sm font-medium">{index.name}</div>
-                      <div className="text-2xl font-bold">{index.value}</div>
-                      <div className={`text-sm ${index.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {index.change >= 0 ? '+' : ''}{index.change}%
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+          {serviceError && (
+            <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 flex items-center">
+              <AlertCircleIcon className="h-5 w-5 mr-2 flex-shrink-0" />
+              <div>
+                <p className="font-medium">{serviceError}</p>
+                <p className="text-sm mt-1">使用模拟数据展示</p>
               </div>
-              <div className="h-[300px] mt-4">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={mockChartData}
-                    margin={{
-                      top: 5,
-                      right: 10,
-                      left: 10,
-                      bottom: 5,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis domain={['dataMin - 10', 'dataMax + 10']} />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#8884d8"
-                      activeDot={{ r: 8 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </TabsContent>
-            <TabsContent value="news" className="space-y-4">
-              {mockNewsData.map((news, index) => (
-                <div key={index} className="flex items-center justify-between py-2 border-b">
-                  <div>
-                    <div className="font-medium">{news.title}</div>
-                    <div className="text-sm text-muted-foreground">{news.time}</div>
+            </div>
+          )}
+          
+          {isLoading ? (
+            renderLoading()
+          ) : (
+            <>
+              {/* 实际数据的展示 */}
+              {marketData && (
+                <div className="space-y-6">
+                  {renderIndices()}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderTopGainers()}
+                    {renderTopLosers()}
                   </div>
-                  <Badge variant={news.sentiment === "positive" ? "default" : "destructive"}>
-                    {news.sentiment === "positive" ? "利好" : "利空"}
-                  </Badge>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderMostActive()}
+                    {marketNews.length > 0 && renderMarketNews()}
+                  </div>
                 </div>
-              ))}
-            </TabsContent>
-            <TabsContent value="trending" className="space-y-4">
-              <div className="space-y-2">
-                {mockTrendingStocks.map((stock) => (
-                  <div key={stock.symbol} className="flex items-center justify-between py-2 border-b">
-                    <div>
-                      <div className="font-medium">{stock.name}</div>
-                      <div className="text-sm text-muted-foreground">{stock.symbol}</div>
+              )}
+              
+              {/* 如果没有实际数据，显示模拟数据 */}
+              {!marketData && (
+                <Tabs defaultValue="indices" className="space-y-4">
+                  <TabsList>
+                    <TabsTrigger value="indices">主要指数</TabsTrigger>
+                    <TabsTrigger value="news">市场新闻</TabsTrigger>
+                    <TabsTrigger value="trending">热门股票</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="indices" className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {mockIndexData.map((index) => (
+                        <Card key={index.name}>
+                          <CardContent className="p-4">
+                            <div className="text-sm font-medium">{index.name}</div>
+                            <div className="text-2xl font-bold">{index.value}</div>
+                            <div className={`text-sm ${index.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                              {index.change >= 0 ? '+' : ''}{index.change}%
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
-                    <div className="text-right">
-                      <div className="font-bold">{stock.price}</div>
-                      <div className={`text-sm ${stock.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {stock.change >= 0 ? '+' : ''}{stock.change}%
+                    <div className="h-[300px] mt-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                          data={mockChartData}
+                          margin={{
+                            top: 5,
+                            right: 10,
+                            left: 10,
+                            bottom: 5,
+                          }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="time" />
+                          <YAxis domain={['dataMin - 10', 'dataMax + 10']} />
+                          <Tooltip />
+                          <Line
+                            type="monotone"
+                            dataKey="value"
+                            stroke="#8884d8"
+                            activeDot={{ r: 8 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="news" className="space-y-4">
+                    {mockNewsData.map((news, index) => (
+                      <div key={index} className="flex items-center justify-between py-2 border-b">
+                        <div>
+                          <div className="font-medium">{news.title}</div>
+                          <div className="text-sm text-muted-foreground">{news.time}</div>
+                        </div>
+                        <Badge variant={news.sentiment === "positive" ? "default" : "destructive"}>
+                          {news.sentiment === "positive" ? "利好" : "利空"}
+                        </Badge>
                       </div>
+                    ))}
+                  </TabsContent>
+                  <TabsContent value="trending" className="space-y-4">
+                    <div className="space-y-2">
+                      {mockTrendingStocks.map((stock) => (
+                        <div key={stock.symbol} className="flex items-center justify-between py-2 border-b">
+                          <div>
+                            <div className="font-medium">{stock.name}</div>
+                            <div className="text-sm text-muted-foreground">{stock.symbol}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold">{stock.price}</div>
+                            <div className={`text-sm ${stock.change >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                              {stock.change >= 0 ? '+' : ''}{stock.change}%
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </TabsContent>
-          </Tabs>
+                  </TabsContent>
+                </Tabs>
+              )}
+              
+              {lastUpdated && (
+                <div className="mt-6 text-xs text-muted-foreground text-right">
+                  最后更新: {lastUpdated.toLocaleString()}
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
     </div>
