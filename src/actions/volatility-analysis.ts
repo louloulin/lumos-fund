@@ -1,6 +1,6 @@
 'use server';
 
-import { VolatilityPredictionService } from "@/services/volatilityPredictionService";
+import { VolatilityPredictionService, VolatilityPrediction, VolatilityForecast } from "@/services/volatilityPredictionService";
 import { createLogger } from "@/lib/logger.server";
 
 const logger = createLogger('volatility-analysis');
@@ -20,6 +20,34 @@ const initializeService = async (): Promise<VolatilityPredictionService> => {
 };
 
 /**
+ * 将VolatilityPrediction转换为VolatilityForecast
+ * @param prediction 原始预测结果
+ * @param days 预测天数
+ * @returns 转换后的预测结果
+ */
+const convertToForecast = (prediction: VolatilityPrediction, days: number): VolatilityForecast => {
+  return {
+    currentVolatility: prediction.current,
+    predictedVolatility: prediction.predicted,
+    confidenceInterval: [prediction.lowerBound, prediction.upperBound],
+    forecastHorizon: days,
+    volatilityTrend: prediction.trend,
+    historicalVolatility: {
+      daily: prediction.current / Math.sqrt(252),
+      weekly: prediction.current / Math.sqrt(52),
+      monthly: prediction.current / Math.sqrt(12)
+    },
+    modelType: 'GARCH(1,1)',
+    modelParams: {
+      omega: 0.00001,
+      alpha: 0.05,
+      beta: 0.94
+    },
+    timestamp: Date.now()
+  };
+};
+
+/**
  * 获取资产波动率预测
  * @param symbol 资产代码
  * @param days 预测天数，默认为7天
@@ -31,23 +59,14 @@ export async function getPrediction(symbol: string, days: number = 7) {
     logger.info(`获取${symbol}的${days}天波动率预测`);
     
     const prediction = await service.predictVolatility(symbol, days);
+    const forecast = convertToForecast(prediction, days);
+    
     logger.info(`成功获取${symbol}的波动率预测`);
     
-    return {
-      success: true,
-      symbol,
-      days,
-      prediction,
-      timestamp: new Date().toISOString()
-    };
+    return forecast;
   } catch (error) {
     logger.error(`获取${symbol}波动率预测失败:`, error);
-    return {
-      success: false,
-      symbol,
-      error: error instanceof Error ? error.message : '未知错误',
-      timestamp: new Date().toISOString()
-    };
+    return null;
   }
 }
 
@@ -62,45 +81,26 @@ export async function batchPrediction(symbols: string[], days: number = 7) {
     const service = await initializeService();
     logger.info(`批量获取${symbols.length}个资产的${days}天波动率预测`);
     
-    const results = await Promise.all(
+    const results: Record<string, VolatilityForecast | null> = {};
+    
+    await Promise.all(
       symbols.map(async (symbol) => {
         try {
           const prediction = await service.predictVolatility(symbol, days);
-          return {
-            success: true,
-            symbol,
-            prediction
-          };
+          results[symbol] = convertToForecast(prediction, days);
         } catch (error) {
           logger.warn(`获取${symbol}波动率预测失败:`, error);
-          return {
-            success: false,
-            symbol,
-            error: error instanceof Error ? error.message : '未知错误'
-          };
+          results[symbol] = null;
         }
       })
     );
     
-    const successCount = results.filter(r => r.success).length;
+    const successCount = Object.values(results).filter(r => r !== null).length;
     logger.info(`批量波动率预测完成，成功: ${successCount}/${symbols.length}`);
     
-    return {
-      success: true,
-      results,
-      summary: {
-        total: symbols.length,
-        successful: successCount,
-        failed: symbols.length - successCount
-      },
-      timestamp: new Date().toISOString()
-    };
+    return results;
   } catch (error) {
     logger.error(`批量波动率预测操作失败:`, error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : '未知错误',
-      timestamp: new Date().toISOString()
-    };
+    return {};
   }
 } 

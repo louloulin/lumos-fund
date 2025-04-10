@@ -1,354 +1,644 @@
+'use client';
+
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { format } from 'date-fns';
+import { 
+  AreaChart, Area, BarChart, Bar, LineChart, Line, 
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+} from 'recharts';
+import { 
+  Table, TableBody, TableCaption, TableCell, 
+  TableHead, TableHeader, TableRow 
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { 
+  ArrowUpIcon, ArrowDownIcon, TrendingUpIcon, TrendingDownIcon, 
+  DollarSignIcon, ActivityIcon, PieChartIcon 
+} from "lucide-react";
 
 // 回测结果类型定义
-interface BacktestResult {
-  strategy: string;
+export interface BacktestResult {
+  strategy?: string;
+  startDate: string;
+  endDate: string;
   initialCapital: number;
-  finalCapital: number;
+  finalValue: number;
   returns: number;
   annualizedReturns: number;
   maxDrawdown: number;
   sharpeRatio: number;
-  winRate: number;
-  profitFactor: number;
-  trades: number;
-  successfulTrades: number;
-  dailyReturns: {
+  trades: {
     date: string;
-    value: number;
-    benchmark: number;
-  }[];
-  positions: {
-    date: string;
-    symbol: string;
-    action: string;
+    ticker: string;
+    action: 'buy' | 'sell' | 'short' | 'cover';
     price: number;
-    shares: number;
+    quantity: number;
     value: number;
-    returnPct?: number;
+    profit?: number;
+    confidence?: number;
   }[];
-  statistics: {
-    name: string;
-    value: string | number;
-  }[];
+  equityCurve: Array<{ date: string; value: number }>;
+  metrics: Record<string, number>;
+  analysis?: string;
+  optimizationSuggestions?: string;
 }
 
 interface BacktestResultsProps {
-  results: BacktestResult[];
+  results: Record<string, BacktestResult> | BacktestResult;
   benchmarkName?: string;
 }
 
-export function BacktestResults({ results, benchmarkName = '沪深300' }: BacktestResultsProps) {
-  const [activeStrategy, setActiveStrategy] = useState<string>(results[0]?.strategy || '');
+export function BacktestResults({ results, benchmarkName = '标普500' }: BacktestResultsProps) {
+  const [activeStrategy, setActiveStrategy] = useState<string | null>(null);
   
-  // 如果没有结果，显示空状态
-  if (!results.length) {
+  // 检查是否是多策略比较
+  const isMultiStrategy = !('startDate' in results);
+  
+  // 获取活跃策略数据
+  let activeData: BacktestResult | null = null;
+  let strategies: string[] = [];
+  
+  if (isMultiStrategy) {
+    strategies = Object.keys(results);
+    if (!activeStrategy && strategies.length > 0) {
+      setActiveStrategy(strategies[0]);
+    }
+    if (activeStrategy) {
+      activeData = (results as Record<string, BacktestResult>)[activeStrategy];
+    }
+  } else {
+    activeData = results as BacktestResult;
+    if (activeData.strategy) {
+      strategies = [activeData.strategy];
+      if (!activeStrategy) {
+        setActiveStrategy(activeData.strategy);
+      }
+    }
+  }
+  
+  // 如果没有数据，显示空状态
+  if (!activeData) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>回测结果</CardTitle>
           <CardDescription>暂无回测数据</CardDescription>
         </CardHeader>
-        <CardContent className="min-h-40 flex items-center justify-center">
-          <p className="text-muted-foreground">请先运行回测</p>
-        </CardContent>
       </Card>
     );
   }
   
-  // 找到当前选择的策略结果
-  const activeResult = results.find(r => r.strategy === activeStrategy) || results[0];
+  // 格式化日期显示
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
   
-  // 格式化收益率百分比
-  const formatPct = (value: number) => `${(value * 100).toFixed(2)}%`;
+  // 计算月度回报
+  const calculateMonthlyReturns = (equityCurve: Array<{ date: string; value: number }>) => {
+    if (!equityCurve || equityCurve.length < 2) return [];
+    
+    const monthlyData: Record<string, { date: string; value: number }> = {};
+    
+    equityCurve.forEach(point => {
+      const date = new Date(point.date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      
+      if (!monthlyData[monthKey] || new Date(monthlyData[monthKey].date) < date) {
+        monthlyData[monthKey] = point;
+      }
+    });
+    
+    const monthlyPoints = Object.values(monthlyData).sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    
+    const monthlyReturns = [];
+    
+    for (let i = 1; i < monthlyPoints.length; i++) {
+      const prevValue = monthlyPoints[i-1].value;
+      const currentValue = monthlyPoints[i].value;
+      const returnPct = ((currentValue / prevValue) - 1) * 100;
+      
+      monthlyReturns.push({
+        month: formatDate(monthlyPoints[i].date).substring(0, 7),
+        return: returnPct
+      });
+    }
+    
+    return monthlyReturns;
+  };
   
-  // 计算回测日期范围
-  const startDate = activeResult.dailyReturns[0]?.date;
-  const endDate = activeResult.dailyReturns[activeResult.dailyReturns.length - 1]?.date;
+  // 统计获利和亏损交易
+  const calculateTradeStats = (trades: BacktestResult['trades']) => {
+    if (!trades || trades.length === 0) {
+      return {
+        totalTrades: 0,
+        profitableTrades: 0,
+        unprofitableTrades: 0,
+        winRate: 0,
+        totalProfit: 0,
+        totalLoss: 0,
+        largestProfit: 0,
+        largestLoss: 0,
+        averageProfit: 0,
+        averageLoss: 0,
+        profitFactor: 0
+      };
+    }
+    
+    // 过滤出卖出交易（包含利润信息）
+    const sellTrades = trades.filter(t => t.action === 'sell' && t.profit !== undefined);
+    
+    if (sellTrades.length === 0) {
+      return {
+        totalTrades: trades.length,
+        profitableTrades: 0,
+        unprofitableTrades: 0,
+        winRate: 0,
+        totalProfit: 0,
+        totalLoss: 0,
+        largestProfit: 0,
+        largestLoss: 0,
+        averageProfit: 0,
+        averageLoss: 0,
+        profitFactor: 0
+      };
+    }
+    
+    const profitableTrades = sellTrades.filter(t => (t.profit || 0) > 0);
+    const unprofitableTrades = sellTrades.filter(t => (t.profit || 0) <= 0);
+    
+    const totalProfit = profitableTrades.reduce((sum, t) => sum + (t.profit || 0), 0);
+    const totalLoss = Math.abs(unprofitableTrades.reduce((sum, t) => sum + (t.profit || 0), 0));
+    
+    const largestProfit = profitableTrades.length > 0
+      ? Math.max(...profitableTrades.map(t => t.profit || 0))
+      : 0;
+      
+    const largestLoss = unprofitableTrades.length > 0
+      ? Math.abs(Math.min(...unprofitableTrades.map(t => t.profit || 0)))
+      : 0;
+      
+    const averageProfit = profitableTrades.length > 0
+      ? totalProfit / profitableTrades.length
+      : 0;
+      
+    const averageLoss = unprofitableTrades.length > 0
+      ? totalLoss / unprofitableTrades.length
+      : 0;
+      
+    const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : totalProfit > 0 ? Infinity : 0;
+    
+    return {
+      totalTrades: sellTrades.length,
+      profitableTrades: profitableTrades.length,
+      unprofitableTrades: unprofitableTrades.length,
+      winRate: profitableTrades.length / sellTrades.length,
+      totalProfit,
+      totalLoss,
+      largestProfit,
+      largestLoss,
+      averageProfit,
+      averageLoss,
+      profitFactor
+    };
+  };
+  
+  const tradeStats = calculateTradeStats(activeData.trades);
+  const monthlyReturns = calculateMonthlyReturns(activeData.equityCurve);
+  
+  // 格式化收益率显示
+  const formatReturnPercent = (value: number) => {
+    return `${(value * 100).toFixed(2)}%`;
+  };
+  
+  // 格式化货币显示
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('zh-CN', {
+      style: 'currency',
+      currency: 'CNY',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  };
+  
+  // 为图表准备权益曲线数据
+  const equityCurveData = activeData.equityCurve.map(point => ({
+    date: formatDate(point.date),
+    value: point.value
+  }));
+  
+  // 拆分交易类型为买入和卖出
+  const buySellTradeData = activeData.trades.map(trade => ({
+    date: formatDate(trade.date),
+    [trade.action === 'buy' ? 'buy' : 'sell']: trade.price
+  }));
   
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>回测结果</CardTitle>
-        <CardDescription>
-          {startDate && endDate ? (
-            `回测期间: ${startDate} - ${endDate} (${activeResult.dailyReturns.length}个交易日)`
-          ) : '策略回测分析'}
-        </CardDescription>
-        
-        {results.length > 1 && (
-          <div className="mt-2">
-            <TabsList className="grid" style={{ 
-              gridTemplateColumns: `repeat(${Math.min(results.length, 4)}, minmax(0, 1fr))` 
-            }}>
-              {results.map(result => (
-                <TabsTrigger 
-                  key={result.strategy} 
-                  value={result.strategy}
-                  onClick={() => setActiveStrategy(result.strategy)}
-                  className={activeStrategy === result.strategy ? 'bg-primary text-primary-foreground' : ''}
-                >
-                  {result.strategy}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-        )}
-      </CardHeader>
-      
-      <CardContent>
-        <Tabs defaultValue="overview">
-          <TabsList className="w-full grid grid-cols-4">
-            <TabsTrigger value="overview">概览</TabsTrigger>
-            <TabsTrigger value="returns">收益曲线</TabsTrigger>
-            <TabsTrigger value="stats">统计指标</TabsTrigger>
-            <TabsTrigger value="trades">交易记录</TabsTrigger>
+    <div className="space-y-6">
+      {/* 策略选择器（仅多策略比较时显示） */}
+      {isMultiStrategy && strategies.length > 1 && (
+        <Tabs
+          value={activeStrategy || strategies[0]}
+          onValueChange={setActiveStrategy}
+          className="w-full"
+        >
+          <TabsList className="grid grid-cols-2 md:grid-cols-5 mb-4">
+            {strategies.map(strategy => (
+              <TabsTrigger key={strategy} value={strategy}>
+                {strategy === 'value' && '价值策略'}
+                {strategy === 'trend' && '趋势策略'}
+                {strategy === 'meanreversion' && '均值回归'}
+                {strategy === 'risk' && '风险管理'}
+                {strategy === 'hybrid' && '混合策略'}
+                {!['value', 'trend', 'meanreversion', 'risk', 'hybrid'].includes(strategy) && strategy}
+              </TabsTrigger>
+            ))}
           </TabsList>
-          
-          {/* 概览面板 */}
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-              <MetricCard 
-                title="总收益率" 
-                value={formatPct(activeResult.returns)} 
-                trend={activeResult.returns > 0 ? "up" : "down"}
-              />
-              <MetricCard 
-                title="年化收益" 
-                value={formatPct(activeResult.annualizedReturns)} 
-                trend={activeResult.annualizedReturns > 0 ? "up" : "down"}
-              />
-              <MetricCard 
-                title="最大回撤" 
-                value={formatPct(activeResult.maxDrawdown)} 
-                trend="down"
-                trendReversed
-              />
-              <MetricCard 
-                title="夏普比率" 
-                value={activeResult.sharpeRatio.toFixed(2)} 
-                trend={activeResult.sharpeRatio > 1 ? "up" : "neutral"}
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-sm font-medium mb-2">收益对比</h3>
-                <div className="h-64">
+        </Tabs>
+      )}
+      
+      {/* 关键指标卡片 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>总回报</CardDescription>
+            <CardTitle className="text-2xl flex items-center">
+              {formatReturnPercent(activeData.returns)}
+              <span className="ml-2">
+                {activeData.returns > 0 ? (
+                  <TrendingUpIcon className="text-green-500 h-5 w-5" />
+                ) : (
+                  <TrendingDownIcon className="text-red-500 h-5 w-5" />
+                )}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              年化收益率: {formatReturnPercent(activeData.annualizedReturns)}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>最大回撤</CardDescription>
+            <CardTitle className="text-2xl text-amber-500">
+              {formatReturnPercent(activeData.maxDrawdown)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              风险收益比: {(activeData.annualizedReturns / activeData.maxDrawdown).toFixed(2)}
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>夏普比率</CardDescription>
+            <CardTitle 
+              className={`text-2xl ${
+                activeData.sharpeRatio > 1 ? 'text-green-500' : 
+                activeData.sharpeRatio > 0 ? 'text-amber-500' : 'text-red-500'
+              }`}
+            >
+              {activeData.sharpeRatio.toFixed(2)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              波动率: {(activeData.metrics.volatility * 100).toFixed(2)}%
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>盈利因子</CardDescription>
+            <CardTitle className="text-2xl">
+              {tradeStats.profitFactor.toFixed(2)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              胜率: {(tradeStats.winRate * 100).toFixed(2)}%
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* 回测结果内容区 */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList>
+          <TabsTrigger value="overview">概览</TabsTrigger>
+          <TabsTrigger value="equity">权益曲线</TabsTrigger>
+          <TabsTrigger value="trades">交易记录</TabsTrigger>
+          <TabsTrigger value="monthly">月度回报</TabsTrigger>
+          {activeData.analysis && <TabsTrigger value="analysis">AI分析</TabsTrigger>}
+        </TabsList>
+        
+        {/* 概览选项卡 */}
+        <TabsContent value="overview">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle>权益曲线</CardTitle>
+                <CardDescription>
+                  {formatDate(activeData.startDate)} 到 {formatDate(activeData.endDate)}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={activeResult.dailyReturns}>
+                    <AreaChart data={equityCurveData}>
+                      <defs>
+                        <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis 
                         dataKey="date" 
-                        tick={{ fontSize: 12 }}
-                        tickFormatter={(value) => {
-                          const date = new Date(value);
-                          return format(date, 'MM-dd');
-                        }}
+                        tick={{fontSize: 12}}
+                        tickFormatter={(value) => value.substring(5)}
                       />
-                      <YAxis 
-                        tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
-                      />
-                      <Tooltip 
-                        formatter={(value: number) => [`${(value * 100).toFixed(2)}%`]}
-                        labelFormatter={(label) => `日期: ${label}`}
-                      />
-                      <Legend />
-                      <Line 
-                        type="monotone" 
-                        dataKey="value" 
-                        name={activeResult.strategy} 
-                        stroke="#3b82f6" 
-                        dot={false}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="benchmark" 
-                        name={benchmarkName} 
-                        stroke="#6b7280" 
-                        dot={false}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-medium mb-2">交易表现</h3>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={[
-                      { name: '交易次数', value: activeResult.trades },
-                      { name: '成功交易', value: activeResult.successfulTrades },
-                      { name: '失败交易', value: activeResult.trades - activeResult.successfulTrades }
-                    ]}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
                       <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" fill="#3b82f6" />
-                    </BarChart>
+                      <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                      <Area 
+                        type="monotone" 
+                        dataKey="value"
+                        stroke="#8884d8"
+                        fillOpacity={1}
+                        fill="url(#colorValue)"
+                        name="投资组合价值"
+                      />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
-              </div>
-            </div>
-          </TabsContent>
-          
-          {/* 收益曲线面板 */}
-          <TabsContent value="returns">
-            <div className="h-80 mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={activeResult.dailyReturns}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{ fontSize: 12 }}
-                  />
-                  <YAxis 
-                    tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
-                  />
-                  <Tooltip 
-                    formatter={(value: number) => [`${(value * 100).toFixed(2)}%`]}
-                    labelFormatter={(label) => `日期: ${label}`}
-                  />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="value" 
-                    name={activeResult.strategy} 
-                    stroke="#3b82f6" 
-                    strokeWidth={2}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="benchmark" 
-                    name={benchmarkName} 
-                    stroke="#6b7280" 
-                    strokeWidth={2}
-                    strokeDasharray="3 3"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+              </CardContent>
+            </Card>
             
-            <div className="mt-4">
-              <h3 className="text-sm font-medium mb-2">策略表现</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <MetricCard 
-                  title="起始资金" 
-                  value={`¥${activeResult.initialCapital.toLocaleString()}`} 
-                  trend="neutral"
-                />
-                <MetricCard 
-                  title="最终资金" 
-                  value={`¥${activeResult.finalCapital.toLocaleString()}`} 
-                  trend={activeResult.finalCapital > activeResult.initialCapital ? "up" : "down"}
-                />
-                <MetricCard 
-                  title="收益率" 
-                  value={formatPct(activeResult.returns)} 
-                  trend={activeResult.returns > 0 ? "up" : "down"}
-                />
-                <MetricCard 
-                  title="盈亏比" 
-                  value={activeResult.profitFactor.toFixed(2)} 
-                  trend={activeResult.profitFactor > 1 ? "up" : "down"}
-                />
+            <Card>
+              <CardHeader>
+                <CardTitle>绩效指标</CardTitle>
+              </CardHeader>
+              <CardContent className="px-0">
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-medium">初始资金</TableCell>
+                      <TableCell>{formatCurrency(activeData.initialCapital)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">最终价值</TableCell>
+                      <TableCell>{formatCurrency(activeData.finalValue)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">净盈亏</TableCell>
+                      <TableCell 
+                        className={activeData.finalValue - activeData.initialCapital > 0 ? 'text-green-600' : 'text-red-600'}
+                      >
+                        {formatCurrency(activeData.finalValue - activeData.initialCapital)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">回测期间</TableCell>
+                      <TableCell>{formatDate(activeData.startDate)} 至 {formatDate(activeData.endDate)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">总交易次数</TableCell>
+                      <TableCell>{activeData.trades.length}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">胜率</TableCell>
+                      <TableCell>{(tradeStats.winRate * 100).toFixed(2)}%</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">平均盈利</TableCell>
+                      <TableCell className="text-green-600">
+                        {formatCurrency(tradeStats.averageProfit)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">平均亏损</TableCell>
+                      <TableCell className="text-red-600">
+                        {formatCurrency(tradeStats.averageLoss)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+        
+        {/* 权益曲线选项卡 */}
+        <TabsContent value="equity">
+          <Card>
+            <CardHeader>
+              <CardTitle>权益曲线和交易点位</CardTitle>
+              <CardDescription>查看投资组合价值变化与交易执行时机</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={equityCurveData}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{fontSize: 12}}
+                    />
+                    <YAxis 
+                      yAxisId="left"
+                      orientation="left"
+                      tickFormatter={(value) => formatCurrency(value).split('.')[0]}
+                    />
+                    <Tooltip 
+                      formatter={(value, name) => [
+                        formatCurrency(Number(value)), 
+                        name === 'value' ? '投资组合价值' : name
+                      ]}
+                    />
+                    <Legend />
+                    <Line 
+                      yAxisId="left"
+                      type="monotone" 
+                      dataKey="value" 
+                      stroke="#8884d8" 
+                      dot={false}
+                      name="投资组合价值"
+                    />
+                    
+                    {/* 在图表上标注交易点 */}
+                    {activeData.trades.map((trade, index) => {
+                      const tradeDate = formatDate(trade.date);
+                      const matchingPoint = equityCurveData.find(p => p.date === tradeDate);
+                      
+                      if (!matchingPoint) return null;
+                      
+                      return (
+                        <Line
+                          key={`trade-${index}`}
+                          yAxisId="left"
+                          dataKey="value"
+                          data={[matchingPoint]}
+                          stroke="transparent"
+                          dot={{
+                            r: 6,
+                            fill: trade.action === 'buy' ? '#4caf50' : '#f44336',
+                            stroke: trade.action === 'buy' ? '#4caf50' : '#f44336'
+                          }}
+                          activeDot={{
+                            r: 8,
+                            fill: trade.action === 'buy' ? '#4caf50' : '#f44336',
+                            stroke: '#fff'
+                          }}
+                          name={trade.action === 'buy' ? '买入' : '卖出'}
+                        />
+                      );
+                    })}
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-            </div>
-          </TabsContent>
-          
-          {/* 统计指标面板 */}
-          <TabsContent value="stats">
-            <div className="mt-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {activeResult.statistics.map((stat, index) => (
-                  <div key={index} className="bg-muted/30 p-4 rounded-md">
-                    <h4 className="text-sm text-muted-foreground">{stat.name}</h4>
-                    <p className="text-lg font-medium mt-1">{stat.value}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
-          
-          {/* 交易记录面板 */}
-          <TabsContent value="trades">
-            <div className="mt-4">
-              <ScrollArea className="h-80">
-                <table className="w-full">
-                  <thead className="sticky top-0 bg-card border-b">
-                    <tr>
-                      <th className="text-left py-2 px-3">日期</th>
-                      <th className="text-left py-2 px-3">股票</th>
-                      <th className="text-left py-2 px-3">操作</th>
-                      <th className="text-right py-2 px-3">价格</th>
-                      <th className="text-right py-2 px-3">数量</th>
-                      <th className="text-right py-2 px-3">金额</th>
-                      <th className="text-right py-2 px-3">收益率</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeResult.positions.map((trade, index) => (
-                      <tr key={index} className="border-b border-muted">
-                        <td className="py-2 px-3">{trade.date}</td>
-                        <td className="py-2 px-3">{trade.symbol}</td>
-                        <td className="py-2 px-3">
-                          <span className={`px-2 py-0.5 text-xs rounded-full ${
-                            trade.action === '买入' ? 'bg-green-100 text-green-800' : 
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {trade.action}
-                          </span>
-                        </td>
-                        <td className="text-right py-2 px-3">¥{trade.price.toFixed(2)}</td>
-                        <td className="text-right py-2 px-3">{trade.shares}</td>
-                        <td className="text-right py-2 px-3">¥{trade.value.toLocaleString()}</td>
-                        <td className="text-right py-2 px-3">
-                          {trade.returnPct !== undefined ? (
-                            <span className={trade.returnPct >= 0 ? 'text-green-600' : 'text-red-600'}>
-                              {formatPct(trade.returnPct)}
-                            </span>
-                          ) : '-'}
-                        </td>
-                      </tr>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* 交易记录选项卡 */}
+        <TabsContent value="trades">
+          <Card>
+            <CardHeader>
+              <CardTitle>交易记录</CardTitle>
+              <CardDescription>查看所有执行的交易</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>日期</TableHead>
+                      <TableHead>类型</TableHead>
+                      <TableHead>价格</TableHead>
+                      <TableHead>数量</TableHead>
+                      <TableHead>交易额</TableHead>
+                      <TableHead>盈亏</TableHead>
+                      <TableHead>置信度</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {activeData.trades.map((trade, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{formatDate(trade.date)}</TableCell>
+                        <TableCell>
+                          <Badge variant={trade.action === 'buy' ? 'default' : 'destructive'}>
+                            {trade.action === 'buy' ? '买入' : '卖出'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatCurrency(trade.price)}</TableCell>
+                        <TableCell>{trade.quantity}</TableCell>
+                        <TableCell>{formatCurrency(trade.value)}</TableCell>
+                        <TableCell className={
+                          trade.profit === undefined ? '' : 
+                          trade.profit > 0 ? 'text-green-600' : 'text-red-600'
+                        }>
+                          {trade.profit !== undefined 
+                            ? formatCurrency(trade.profit) 
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {trade.confidence !== undefined 
+                            ? `${(trade.confidence * 100).toFixed(0)}%` 
+                            : '—'}
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* 月度回报选项卡 */}
+        <TabsContent value="monthly">
+          <Card>
+            <CardHeader>
+              <CardTitle>月度回报</CardTitle>
+              <CardDescription>查看按月度统计的回报率</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[400px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyReturns}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis tickFormatter={(value) => `${value.toFixed(1)}%`} />
+                    <Tooltip 
+                      formatter={(value) => [`${Number(value).toFixed(2)}%`, '收益率']}
+                      cursor={{fill: 'rgba(0, 0, 0, 0.1)'}}
+                    />
+                    <Bar 
+                      dataKey="return" 
+                      name="月收益率" 
+                      fill={(data) => Number(data.return) >= 0 ? '#4caf50' : '#f44336'}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* AI分析选项卡 */}
+        {activeData.analysis && (
+          <TabsContent value="analysis">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>AI策略分析</CardTitle>
+                  <CardDescription>人工智能对回测结果的评估</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[400px] pr-4">
+                    <div className="space-y-4">
+                      {activeData.analysis.split('\n\n').map((paragraph, i) => (
+                        <p key={i}>{paragraph}</p>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+              
+              {activeData.optimizationSuggestions && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>策略优化建议</CardTitle>
+                    <CardDescription>AI提供的改进方向</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[400px] pr-4">
+                      <div className="space-y-4">
+                        {activeData.optimizationSuggestions.split('\n\n').map((paragraph, i) => (
+                          <p key={i}>{paragraph}</p>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
-  );
-}
-
-// 指标卡片组件
-interface MetricCardProps {
-  title: string;
-  value: string | number;
-  trend: 'up' | 'down' | 'neutral';
-  trendReversed?: boolean;
-}
-
-function MetricCard({ title, value, trend, trendReversed = false }: MetricCardProps) {
-  const getTrendColor = () => {
-    if (trend === 'neutral') return 'text-gray-500';
-    return trendReversed 
-      ? (trend === 'up' ? 'text-red-500' : 'text-green-500')
-      : (trend === 'up' ? 'text-green-500' : 'text-red-500');
-  };
-  
-  return (
-    <div className="bg-card p-4 rounded-md border">
-      <h3 className="text-sm text-muted-foreground">{title}</h3>
-      <p className={`text-2xl font-bold mt-1 ${getTrendColor()}`}>{value}</p>
+        )}
+      </Tabs>
     </div>
   );
 } 

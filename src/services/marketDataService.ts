@@ -900,10 +900,57 @@ export class MarketDataService extends EventEmitter {
     
     return news;
   }
+
+  /**
+   * 获取最新价格
+   */
+  public async fetchLatestPrice(ticker: string): Promise<{ price: number; timestamp: string; change: number; changePercent: number }> {
+    try {
+      // 在实际实现中，这里应该调用真实的市场数据API
+      // 目前使用模拟数据
+      const basePrice = this.getBasePrice(ticker);
+      const variation = (Math.random() - 0.5) * 0.05 * basePrice;
+      const currentPrice = basePrice + variation;
+      
+      return {
+        price: parseFloat(currentPrice.toFixed(2)),
+        timestamp: new Date().toISOString(),
+        change: parseFloat(variation.toFixed(2)),
+        changePercent: parseFloat(((variation / basePrice) * 100).toFixed(2))
+      };
+    } catch (error) {
+      logger.error(`获取${ticker}最新价格失败: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`获取${ticker}最新价格失败`);
+    }
+  }
+
+  /**
+   * 获取股票基准价格（模拟）
+   */
+  private getBasePrice(ticker: string): number {
+    // 为常见股票代码分配固定的基准价格
+    const basePrices: Record<string, number> = {
+      'AAPL': 150.00,
+      'MSFT': 300.00,
+      'GOOGL': 120.00,
+      'AMZN': 130.00,
+      'META': 280.00,
+      'TSLA': 220.00,
+      'NVDA': 400.00,
+      'BABA': 85.00,
+      'TCEHY': 40.00,
+      'BIDU': 120.00,
+      'PDD': 90.00,
+      'JD': 30.00
+    };
+    
+    // 返回基准价格，如果不存在则生成一个随机的价格
+    return basePrices[ticker] || 50 + Math.random() * 150;
+  }
 }
 
 // 创建单例实例
 const marketDataService = new MarketDataService();
 
-export { marketDataService, MarketDataService };
+export { marketDataService };
 export default marketDataService; 

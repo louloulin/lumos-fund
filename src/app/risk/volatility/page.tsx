@@ -57,10 +57,12 @@ import {
   TrendingDownIcon,
   AlertTriangleIcon,
   InfoIcon,
-  RefreshCwIcon
+  RefreshCwIcon,
+  TrendingUp
 } from 'lucide-react';
 import { getPrediction, batchPrediction } from '@/actions/volatility-analysis';
 import { VolatilityForecast } from '@/services/volatilityPredictionService';
+import Link from 'next/link';
 
 // 默认股票列表
 const DEFAULT_SYMBOLS = [
@@ -652,6 +654,15 @@ export default function VolatilityAnalysisPage() {
         ) : (
           renderSymbolDetail()
         )}
+      </div>
+      
+      <div className="mb-6">
+        <Link href="/risk/volatility/prediction">
+          <Button className="flex items-center gap-2">
+            <TrendingUp size={16} />
+            <span>波动率预测分析</span>
+          </Button>
+        </Link>
       </div>
     </div>
   );
