@@ -222,6 +222,38 @@ function convertBacktestResult(
 }
 
 /**
+ * 将前端BacktestResult转换为服务层需要的BacktestResult类型
+ */
+function convertToServiceBacktestResult(result: BacktestResult): ServiceBacktestResult {
+  return {
+    startDate: '',  // 这些字段在前端结果中不存在，但服务需要
+    endDate: '',
+    initialCapital: 0,
+    finalValue: 0,
+    returns: result.metrics.totalReturn,
+    annualizedReturns: result.metrics.annualizedReturn,
+    maxDrawdown: result.metrics.maxDrawdown,
+    sharpeRatio: result.metrics.sharpeRatio,
+    trades: result.trades.map(trade => ({
+      date: trade.date,
+      ticker: '',  // 填充必要的字段
+      action: trade.type === 'buy' ? 'buy' : 'sell',
+      price: trade.price,
+      quantity: trade.shares,
+      value: trade.price * trade.shares,
+      profit: trade.profit || 0
+    })),
+    equityCurve: result.equityCurve,
+    metrics: {
+      volatility: 0,  // 填充必要的字段
+      tradeCount: result.trades.length,
+      winRate: result.metrics.winRate,
+      profitFactor: result.metrics.profitFactor
+    }
+  };
+}
+
+/**
  * 运行价值投资策略回测
  */
 export async function runValueBacktest(
@@ -250,12 +282,8 @@ export async function runValueBacktest(
     const analysis = await backtestService.getBacktestAnalysis(result);
     const optimizationSuggestions = await backtestService.getOptimizationSuggestions(strategies.value, result);
     
-    // 扩展结果对象，添加AI分析
-    const enhancedResult = {
-      ...result,
-      analysis,
-      optimizationSuggestions
-    };
+    // 转换结果格式并返回
+    const enhancedResult = convertBacktestResult(result, analysis, optimizationSuggestions);
     
     revalidatePath('/backtest');
     revalidatePath('/dashboard/backtest');
@@ -296,12 +324,8 @@ export async function runTrendFollowingBacktest(
     const analysis = await backtestService.getBacktestAnalysis(result);
     const optimizationSuggestions = await backtestService.getOptimizationSuggestions(strategies.trendFollowing, result);
     
-    // 扩展结果对象
-    const enhancedResult = {
-      ...result,
-      analysis,
-      optimizationSuggestions
-    };
+    // 转换结果格式并返回
+    const enhancedResult = convertBacktestResult(result, analysis, optimizationSuggestions);
     
     revalidatePath('/backtest');
     revalidatePath('/dashboard/backtest');
@@ -343,12 +367,8 @@ export async function runMeanReversionBacktest(
     const analysis = await backtestService.getBacktestAnalysis(result);
     const optimizationSuggestions = await backtestService.getOptimizationSuggestions(strategies.meanReversion, result);
     
-    // 扩展结果对象
-    const enhancedResult = {
-      ...result,
-      analysis,
-      optimizationSuggestions
-    };
+    // 转换结果格式并返回
+    const enhancedResult = convertBacktestResult(result, analysis, optimizationSuggestions);
     
     revalidatePath('/backtest');
     revalidatePath('/dashboard/backtest');
@@ -384,12 +404,8 @@ export async function runRiskManagementBacktest(
     const analysis = await backtestService.getBacktestAnalysis(result);
     const optimizationSuggestions = await backtestService.getOptimizationSuggestions(strategies.riskManagement, result);
     
-    // 扩展结果对象
-    const enhancedResult = {
-      ...result,
-      analysis,
-      optimizationSuggestions
-    };
+    // 转换结果格式并返回
+    const enhancedResult = convertBacktestResult(result, analysis, optimizationSuggestions);
     
     revalidatePath('/backtest');
     revalidatePath('/dashboard/backtest');
@@ -425,12 +441,8 @@ export async function runHybridBacktest(
     const analysis = await backtestService.getBacktestAnalysis(result);
     const optimizationSuggestions = await backtestService.getOptimizationSuggestions(strategies.hybrid, result);
     
-    // 扩展结果对象
-    const enhancedResult = {
-      ...result,
-      analysis,
-      optimizationSuggestions
-    };
+    // 转换结果格式并返回
+    const enhancedResult = convertBacktestResult(result, analysis, optimizationSuggestions);
     
     revalidatePath('/backtest');
     revalidatePath('/dashboard/backtest');
@@ -522,7 +534,10 @@ export async function getBacktestAnalysis(
   strategyName: string
 ): Promise<{ analysis: string; optimizationSuggestions: string }> {
   try {
-    const analysis = await backtestService.getBacktestAnalysis(result);
+    // 将前端BacktestResult转换为服务需要的格式
+    const serviceResult = convertToServiceBacktestResult(result);
+    
+    const analysis = await backtestService.getBacktestAnalysis(serviceResult);
     
     // 查找对应的策略以获取优化建议
     let strategy = strategies.hybrid;
@@ -531,7 +546,7 @@ export async function getBacktestAnalysis(
     else if (strategyName === 'meanreversion') strategy = strategies.meanReversion;
     else if (strategyName === 'risk') strategy = strategies.riskManagement;
     
-    const optimizationSuggestions = await backtestService.getOptimizationSuggestions(strategy, result);
+    const optimizationSuggestions = await backtestService.getOptimizationSuggestions(strategy, serviceResult);
     
     return {
       analysis,
