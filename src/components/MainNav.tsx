@@ -15,6 +15,7 @@ import {
   BrainCircuitIcon,
   ActivityIcon,
   BeakerIcon,
+  TrendingUpIcon,
 } from "lucide-react";
 
 interface MainNavProps {
@@ -37,6 +38,12 @@ export function MainNav({ className, showMobileMenu }: MainNavProps) {
       label: "分析面板",
       icon: LayoutDashboardIcon,
       active: pathname === "/dashboard",
+    },
+    {
+      href: "/dashboard/performance",
+      label: "绩效仪表盘",
+      icon: TrendingUpIcon,
+      active: pathname === "/dashboard/performance",
     },
     {
       href: "/portfolio",

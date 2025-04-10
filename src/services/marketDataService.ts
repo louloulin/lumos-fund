@@ -149,14 +149,14 @@ export class MarketDataService extends EventEmitter {
     if (this.isInitialized) {
       return;
     }
-    
+
     logger.info('初始化市场数据服务');
-    
+      
     // 在实际应用中，这里会连接到数据库或API
     // 为了演示，我们预加载一些模拟数据
     this.loadMockData();
-    
-    this.isInitialized = true;
+      
+      this.isInitialized = true;
     logger.info('市场数据服务初始化完成');
   }
 
@@ -844,7 +844,7 @@ export class MarketDataService extends EventEmitter {
       epsGrowth: parseFloat((randomPercentage() * 0.75 + 0.75).toFixed(2))
     };
   }
-  
+
   /**
    * 生成随机新闻数据
    */
